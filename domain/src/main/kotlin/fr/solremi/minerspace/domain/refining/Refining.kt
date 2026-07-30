@@ -232,8 +232,9 @@ class RefiningEngine(
                 bufferDeltas[resourceId] = buffered
             }
         }
+        val removedIndex = current.refining.jobs.indexOfFirst { it.id == jobId }
         val remaining = current.refining.jobs.filterNot { it.id == jobId }
-        val rescheduled = reschedule(remaining, nowEpochMillis)
+        val rescheduled = rescheduleAfterRemoval(remaining, removedIndex, nowEpochMillis)
         val next = current.copy(
             economy = current.economy.copy(
                 inventory = inventory,
@@ -340,12 +341,24 @@ class RefiningEngine(
         }
     }
 
-    private fun reschedule(jobs: List<RefiningJob>, nowEpochMillis: Long): List<RefiningJob> {
-        var cursor = nowEpochMillis
-        return jobs.map { job ->
-            if (job.status == RefiningJobStatus.READY_TO_COLLECT) return@map job
+    private fun rescheduleAfterRemoval(
+        jobs: List<RefiningJob>,
+        removedIndex: Int,
+        nowEpochMillis: Long,
+    ): List<RefiningJob> {
+        if (jobs.isEmpty()) return jobs
+        val preservedCount = removedIndex.coerceIn(0, jobs.size)
+        var cursor = jobs.take(preservedCount)
+            .lastOrNull()
+            ?.finishesAtEpochMillis
+            ?.coerceAtLeast(nowEpochMillis)
+            ?: nowEpochMillis
+        return jobs.mapIndexed { index, job ->
+            if (index < preservedCount || job.status == RefiningJobStatus.READY_TO_COLLECT) {
+                return@mapIndexed job
+            }
             val duration = job.finishesAtEpochMillis - job.startsAtEpochMillis
-            val start = maxOf(cursor, nowEpochMillis)
+            val start = cursor
             val finish = Math.addExact(start, duration)
             cursor = finish
             job.copy(
