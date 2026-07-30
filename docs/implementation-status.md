@@ -40,34 +40,61 @@ Statut : **implémentée dans le code et vérifiée par compilation Kotlin local
 
 Éléments présents :
 
-- `ResourceDefinition`, `DepositDefinition`, `EconomyState` et inventaire en `Long` ;
-- réserves de gisement et zones de collecte bornées ;
-- extraction continue calculée en secondes entières depuis l’horloge monotone ;
-- multiplicateurs fixes en millionièmes et arrondi final inférieur ;
-- collecte atomique avec rejet d’une collecte vide ;
-- vente atomique et ajout contrôlé de SpaceDollars ;
+- ressources, réserves, stocks et monnaie en `Long` ;
+- extraction continue calculée en secondes entières ;
+- calculs fixes en millionièmes et arrondi inférieur ;
+- collecte et vente atomiques ;
 - séquence de transaction monotone ;
 - définitions versionnées dans `assets/data/core-economy.json` ;
-- chargeur JSON entier refusant les nombres décimaux ;
-- simulateur accéléré avec collecte et vente automatiques ;
-- tests JVM pour la non-duplication, les arrondis, le chargement JSON et 24 heures de simulation ;
-- HUD affichant monnaie, stocks, réserve, collecte et vitesse ;
-- actions tactiles `COLLECTER` et `VENDRE`.
+- chargeur JSON refusant les nombres décimaux ;
+- simulateur accéléré et test de 86 400 secondes ;
+- HUD affichant monnaie, stocks, réserve, collecte et vitesse.
+
+## Étape 3 — Raffinage
+
+Statut : **implémentée dans le code et vérifiée par contrôles Kotlin locaux, validation Gradle et Android restante**.
+
+Éléments présents :
+
+- robot raffineur `robot_rf_01` visible et sélectionnable ;
+- recettes `recipe_iron_ingot` et `recipe_copper_plate` ;
+- ressources raffinées `refined_iron_ingot` et `refined_copper_plate` ;
+- file persistante de quatre tâches ;
+- réservation atomique des ingrédients au lancement ;
+- horodatages absolus permettant de reprendre une tâche après fermeture forcée ;
+- statuts `QUEUED`, `RUNNING` et `READY_TO_COLLECT` ;
+- annulation avec remboursement de 100 % avant 10 %, 80 % jusqu’à 90 %, puis 0 % ;
+- zone de remboursement persistante si le stockage est plein ;
+- sortie terminée conservée dans la tâche tant que le stockage ne peut pas la recevoir ;
+- collecte idempotente empêchant une double attribution ;
+- sauvegarde locale atomique par fichier temporaire puis remplacement ;
+- snapshot de l’économie, des gisements, de la file, des réservations et des remboursements ;
+- sauvegarde immédiate après lancement, annulation, collecte et vente ;
+- sauvegarde au passage en arrière-plan et autosauvegarde périodique ;
+- choix de recette, lancement, relance, collecte et annulation depuis le HUD ;
+- relance de la recette courante en deux pressions maximum ;
+- effet visuel pulsé et barre de progression sur RF-01.
 
 Contrôles déjà effectués hors Android :
 
-- compilation des sources Kotlin pures `domain`, `data` et `simulation` ;
-- exécution d’un scénario extraction → collecte → vente ;
-- rejet d’une seconde collecte sur une zone vide ;
-- simulation de 86 400 secondes sans erreur d’invariant, valeur négative ou dépassement.
+- compilation syntaxique du moteur de raffinage avec les dépendances de domaine simulées ;
+- compilation syntaxique de l’écran avec les API LibGDX simulées ;
+- scénario lancement → fin → collecte ;
+- rejet d’une seconde collecte du même produit ;
+- contrôle des remboursements à 100 %, 80 % et 0 % ;
+- contrôle du maintien d’un résultat terminé lorsque le stockage est plein ;
+- aller-retour complet snapshot → fichier → restauration d’une tâche active ;
+- correction de la replanification afin qu’annuler une tâche en attente ne réinitialise pas la tâche active.
 
 Validation encore nécessaire sur une machine Android équipée du SDK :
 
 1. générer le wrapper Gradle ;
 2. synchroniser le projet ;
 3. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
-4. assembler l’APK debug ;
-5. vérifier l’extraction au fil du temps réel ;
-6. tester collecte et vente en 640 × 320 et 844 × 390 ;
-7. vérifier paysage gauche et paysage droit ;
-8. confirmer l’absence d’overflow et 60 FPS sur l’appareil cible.
+4. assembler et installer l’APK debug ;
+5. lancer plusieurs recettes et vérifier l’ordre de file ;
+6. forcer la fermeture pendant une tâche puis rouvrir l’application ;
+7. tester les trois paliers de remboursement ;
+8. tester un stockage de sortie plein puis libéré ;
+9. contrôler le HUD en 640 × 320 et 844 × 390 dans les deux sens paysage ;
+10. confirmer l’absence d’overflow et 60 FPS sur l’appareil cible.
