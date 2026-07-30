@@ -2,163 +2,165 @@
 
 ## 1. Objectif
 
-Garantir qu’aucune fermeture, rotation paysage, publicité, mise à jour ou interruption système ne duplique ou ne supprime une progression valide.
+Aucune fermeture, interruption système, rotation paysage, mise à jour ou modification d’horloge ne doit supprimer ou dupliquer une progression valide.
 
-## 2. Stratégie de sauvegarde
+## 2. Stockage local
 
-- Base locale structurée pour les états principaux.
-- DataStore pour préférences et réglages.
-- Deux snapshots alternés : A et B.
-- Checksum pour chaque snapshot.
-- Écriture atomique dans un fichier temporaire puis remplacement.
-- Journal court des transactions critiques.
-- Sauvegarde avant et après prestige.
+L’état principal utilise un conteneur local structuré comprenant :
 
-## 3. Déclencheurs de sauvegarde
+- version du conteneur ;
+- numéro de séquence monotone ;
+- heure UTC de sauvegarde ;
+- version du schéma métier ;
+- version du contenu ;
+- taille du payload ;
+- checksum CRC32 ;
+- snapshot sérialisé.
+
+Deux fichiers sont alternés : `primary.a.msv` et `primary.b.msv`. Le fichier le plus ancien est remplacé, ce qui conserve toujours la dernière copie valide précédente.
+
+Une écriture suit cet ordre :
+
+1. sérialisation immuable de l’état ;
+2. écriture dans un fichier temporaire ;
+3. vidage et synchronisation du fichier ;
+4. remplacement atomique lorsque le système le permet ;
+5. conservation intacte de l’autre snapshot.
+
+L’ancien fichier unique `primary.msv` reste lisible pour permettre la migration.
+
+## 3. Chargement et corruption
+
+Au chargement :
+
+1. lire les snapshots A et B ;
+2. vérifier en-tête, taille et checksum ;
+3. sélectionner le snapshot valide ayant la séquence la plus élevée ;
+4. si l’un est corrompu, restaurer automatiquement l’autre ;
+5. à défaut, essayer l’ancien fichier unique ;
+6. démarrer une nouvelle partie seulement si aucune donnée n’est récupérable.
+
+L’écran de retour informe le joueur lorsqu’une copie antérieure a été restaurée, sans exposer de jargon technique.
+
+## 4. Schémas et migrations
+
+Le schéma courant est le schéma 3.
+
+- schéma 1 : économie et raffinage ;
+- schéma 2 : ajout de l’assemblage et des technologies ;
+- schéma 3 : métadonnées temporelles et reprise hors ligne robuste.
+
+La migration :
+
+1. décode le schéma source ;
+2. ajoute les systèmes absents avec un état vide valide ;
+3. aligne l’inventaire et les gisements sur le contenu courant ;
+4. retire les recettes ou identifiants inconnus ;
+5. conserve uniquement les technologies dont les prérequis restent cohérents ;
+6. valide les invariants ;
+7. écrit un nouveau snapshot sans supprimer immédiatement la copie précédente.
+
+## 5. Déclencheurs de sauvegarde
 
 Sauvegarde immédiate après :
 
 - vente ou achat ;
 - lancement, annulation ou collecte d’une tâche ;
-- amélioration de bâtiment ou robot ;
-- équipement ou démontage d’un module ;
-- obtention d’une ressource exceptionnelle ;
-- résultat de pluie de météorites ;
-- attribution publicitaire ;
-- fin de mission importante ;
-- changement de spécialisation ;
-- transfert planétaire.
+- fabrication ou installation d’une technologie ;
+- récompense importante ;
+- changement structurel de progression.
 
-Sauvegarde différée avec debounce de quelques secondes pour :
+Sauvegarde périodique pour la simulation continue et sauvegarde forcée lors du passage en arrière-plan.
 
-- déplacement de caméra ;
-- ouverture de panneaux ;
-- préférences non critiques.
+## 6. Cycle de vie Android
 
-## 4. Cycle de vie
+### Reprise
 
-### `onPause` ou passage en arrière-plan
+1. charger et valider le snapshot ;
+2. migrer si nécessaire ;
+3. comparer l’heure UTC enregistrée et l’heure actuelle ;
+4. calculer la progression hors ligne ;
+5. réécrire l’état résolu ;
+6. afficher le résumé de retour lorsque nécessaire ;
+7. créer ensuite l’écran principal.
 
-- figer un snapshot de simulation ;
-- enregistrer l’heure valide ;
-- persister les tâches et événements actifs ;
-- mettre en pause les effets et entrées ;
-- ne pas considérer l’application comme fermée tant que l’état n’est pas écrit.
+### Arrière-plan
 
-### `onResume`
+`onPause`, `onStop`, `TRIM_MEMORY_UI_HIDDEN` et la mémoire faible signalent l’arrière-plan. Le jeu sauvegarde l’économie, les files et leurs horodatages avant de suspendre l’audio et les effets.
 
-1. vérifier la sauvegarde ;
-2. comparer les horodatages ;
-3. calculer la progression hors ligne ;
-4. résoudre les transactions en attente ;
-5. afficher l’écran de retour si nécessaire ;
-6. reprendre la scène sans dupliquer les animations de récompense.
+### Rotation paysage
 
-### Rotation entre les deux paysages
+L’activité n’est pas recréée. Seule la mise en page est recalculée ; les tâches ne sont jamais relancées.
 
-- aucune recréation de partie ;
-- conservation de la caméra ;
-- conservation de la sélection ;
-- recalcul uniquement de la mise en page ;
-- aucune tâche relancée.
+## 7. Progression hors ligne
 
-### Fermeture forcée ou manque de mémoire
-
-- restaurer le dernier snapshot valide ;
-- rejouer seulement les transactions validées du journal ;
-- ne jamais réattribuer une récompense déjà confirmée.
-
-## 5. Cas particuliers
-
-### Appel, écran verrouillé ou fenêtre système
-
-- pluie de météorites mise en pause si l’application perd le focus ;
-- si la pause dépasse la fenêtre maximale, convertir les fragments déjà collectés en résultat définitif ;
-- aucune pénalité sur les fragments non récupérés.
-
-### Publicité
-
-États :
+Le temps simulé est :
 
 ```text
-OFFERED
-STARTED
-SDK_REWARDED
-COMMITTED
-CANCELLED
-FAILED
+tempsSimulé = min(max(heureActuelle - heureSauvegardée, 0), capacitéHorsLigne)
 ```
 
-- seul `SDK_REWARDED` peut déclencher la transaction ;
-- `COMMITTED` est persisté après écriture de la récompense ;
-- au retour, une récompense `SDK_REWARDED` non `COMMITTED` est reprise une seule fois ;
-- une publicité interrompue avant validation ne donne rien et ne consomme pas la limite.
+La capacité initiale est de 8 heures et pourra être améliorée jusqu’à 24 heures.
 
-### Changement d’heure ou de fuseau
+La simulation applique les limites réelles :
 
-- stocker UTC et dernier temps serveur connu lorsque disponible ;
-- détecter un retour en arrière important ;
-- plafonner le temps hors ligne au maximum autorisé ;
-- ne jamais punir agressivement ;
-- afficher un message discret si le calcul a été plafonné.
+- réserve restante ;
+- capacité de transport ;
+- capacité de stockage ;
+- fin des tâches RF et AS ;
+- prérequis et technologies déjà installées.
 
-### Mise à jour de l’application
+Aucune production ne continue après saturation. Les tâches terminées restent collectables et ne sont jamais attribuées automatiquement deux fois.
 
-1. conserver une copie pré-migration ;
-2. exécuter les migrations dans l’ordre ;
-3. valider les invariants ;
-4. écrire un nouveau snapshot ;
-5. conserver temporairement l’ancien snapshot pour retour arrière.
+## 8. Changement d’heure
 
-## 6. Invariants de sauvegarde
+- un léger décalage vers l’arrière est ignoré ;
+- un retour significatif de l’horloge produit zéro progression ;
+- une avance importante reste plafonnée par la capacité hors ligne ;
+- le joueur reçoit un message discret en cas de plafonnement ou d’horloge incohérente ;
+- aucune pénalité agressive n’est appliquée.
+
+## 9. Écran de retour
+
+Le résumé affiche selon les événements :
+
+- durée d’absence et durée réellement simulée ;
+- quantité extraite ;
+- tâches RF et AS terminées ;
+- gisements épuisés ;
+- blocages par stockage ou transport ;
+- plafonnement à 8 heures ;
+- détection d’une modification d’horloge ;
+- migration ou restauration d’un snapshot alterné.
+
+L’écran respecte les zones sûres, les deux orientations paysage et une cible tactile minimale de 48 unités.
+
+## 10. Invariants
 
 Après chaque chargement :
 
-- quantités et monnaies non négatives ;
-- identifiants uniques ;
-- une tâche appartient à une file existante ;
-- les entrées réservées correspondent à une tâche ;
-- un robot n’est pas affecté simultanément à deux emplois incompatibles ;
-- un module n’est équipé que sur un robot ;
-- la planète active existe ;
-- le Codex ne perd jamais une entrée découverte ;
-- une transaction publicitaire n’est engagée qu’une fois.
+- stocks, réserves et monnaies non négatifs ;
+- inventaire limité aux capacités actuelles ;
+- identifiants de tâches uniques ;
+- tâche liée à une recette et une ressource existantes ;
+- entrées réservées cohérentes ;
+- technologies installées existantes et prérequis satisfaits ;
+- aucune récompense ou collecte attribuée deux fois.
 
-## 7. Corruption
+## 11. Tests obligatoires
 
-Ordre de restauration :
-
-1. snapshot principal ;
-2. snapshot alterné ;
-3. copie pré-migration ;
-4. nouvelle partie uniquement si aucune donnée n’est récupérable.
-
-L’utilisateur est informé si une sauvegarde plus ancienne a été restaurée, sans jargon technique.
-
-## 8. Sauvegarde cloud future
-
-L’architecture prévoit sans l’imposer en 1.0 :
-
-- identifiant de profil ;
-- version de sauvegarde ;
-- résolution de conflit par comparaison de progression ;
-- aperçu avant remplacement ;
-- fusion limitée aux collections permanentes lorsqu’elle est sûre ;
-- aucune synchronisation silencieuse détruisant une sauvegarde locale plus avancée.
-
-## 9. Tests obligatoires
-
-- fermeture forcée pendant extraction ;
-- fermeture pendant raffinage terminé ;
-- fermeture pendant collecte ;
-- fermeture pendant publicité récompensée ;
-- interruption pendant météorites ;
-- redémarrage téléphone ;
+- arrière-plan et reprise ;
+- fermeture forcée pendant extraction, raffinage et assemblage ;
+- redémarrage du téléphone ;
 - absence de 1 minute, 8 heures, 24 heures et 7 jours ;
 - gisement épuisé hors ligne ;
-- batterie vide hors ligne ;
 - stockage plein hors ligne ;
-- rotation paysage gauche/droite ;
+- retour et avance de l’horloge ;
 - migration depuis chaque schéma conservé ;
-- snapshot principal volontairement corrompu ;
-- prestige interrompu à chaque étape de transaction.
+- corruption volontaire du snapshot le plus récent ;
+- rotation paysage gauche et droite ;
+- absence de gel visible pendant lecture et écriture.
+
+## 12. Éléments futurs
+
+Le journal de transactions publicitaires, les copies dédiées avant prestige et la sauvegarde cloud seront ajoutés avec les systèmes concernés. Les snapshots actuels préservent déjà une copie antérieure adaptée aux migrations ordinaires.

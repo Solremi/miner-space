@@ -1,5 +1,6 @@
 package fr.solremi.minerspace.android
 
+import android.content.ComponentCallbacks2
 import android.os.Bundle
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
@@ -12,7 +13,6 @@ class MainActivity : AndroidApplication() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         platformServices = AndroidPlatformServices(applicationContext)
         val configuration = AndroidApplicationConfiguration().apply {
             useImmersiveMode = true
@@ -21,7 +21,6 @@ class MainActivity : AndroidApplication() {
             useAccelerometer = false
             numSamples = 2
         }
-
         initialize(
             MinerSpaceGame(
                 services = platformServices.services,
@@ -33,15 +32,28 @@ class MainActivity : AndroidApplication() {
 
     override fun onResume() {
         super.onResume()
-        if (::platformServices.isInitialized) {
-            platformServices.onForeground()
-        }
+        if (::platformServices.isInitialized) platformServices.onForeground()
     }
 
     override fun onPause() {
-        if (::platformServices.isInitialized) {
+        if (::platformServices.isInitialized) platformServices.onBackground()
+        super.onPause()
+    }
+
+    override fun onStop() {
+        if (::platformServices.isInitialized) platformServices.onBackground()
+        super.onStop()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN && ::platformServices.isInitialized) {
             platformServices.onBackground()
         }
-        super.onPause()
+        super.onTrimMemory(level)
+    }
+
+    override fun onLowMemory() {
+        if (::platformServices.isInitialized) platformServices.onBackground()
+        super.onLowMemory()
     }
 }

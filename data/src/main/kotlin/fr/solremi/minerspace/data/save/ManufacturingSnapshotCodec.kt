@@ -13,13 +13,21 @@ import fr.solremi.minerspace.domain.refining.RefiningState
 import fr.solremi.minerspace.domain.services.SavePayload
 import fr.solremi.minerspace.shared.GameId
 
+data class SnapshotDecodeResult(
+    val state: ManufacturingGameState,
+    val sourceSchemaVersion: Int,
+    val requiresRewrite: Boolean,
+)
+
 class ManufacturingSnapshotCodec {
     fun encode(
         state: ManufacturingGameState,
         contentVersion: String,
         slotId: String = DEFAULT_SLOT,
+        savedAtEpochMillis: Long = System.currentTimeMillis().coerceAtLeast(0L),
     ): SavePayload {
         require(contentVersion.isNotBlank())
+        require(savedAtEpochMillis >= 0L)
         val text = buildString {
             appendLine("format=$FORMAT_VERSION")
             appendLine("contentVersion=$contentVersion")
@@ -39,12 +47,32 @@ class ManufacturingSnapshotCodec {
             schemaVersion = FORMAT_VERSION,
             contentVersion = contentVersion,
             bytes = text.toByteArray(Charsets.UTF_8),
+            savedAtEpochMillis = savedAtEpochMillis,
         )
     }
 
-    fun decode(payload: SavePayload): ManufacturingGameState {
-        require(payload.schemaVersion == FORMAT_VERSION) { "Unsupported snapshot schema" }
-        val fields = payload.bytes.toString(Charsets.UTF_8)
+    fun decode(payload: SavePayload): ManufacturingGameState = decodeWithMetadata(payload).state
+
+    fun decodeWithMetadata(payload: SavePayload): SnapshotDecodeResult {
+        require(payload.schemaVersion in SUPPORTED_FORMATS) { "Unsupported snapshot schema" }
+        val fields = decodeFields(payload)
+        val embeddedFormat = fields.getValue("format").toInt()
+        require(embeddedFormat == payload.schemaVersion) { "Snapshot schema mismatch" }
+        require(fields.getValue("contentVersion") == payload.contentVersion)
+        val state = when (payload.schemaVersion) {
+            1 -> decodeFormat1(fields)
+            2, 3 -> decodeFormat2Or3(fields)
+            else -> error("Unsupported snapshot schema")
+        }
+        return SnapshotDecodeResult(
+            state = state,
+            sourceSchemaVersion = payload.schemaVersion,
+            requiresRewrite = payload.schemaVersion != FORMAT_VERSION,
+        )
+    }
+
+    private fun decodeFields(payload: SavePayload): Map<String, String> =
+        payload.bytes.toString(Charsets.UTF_8)
             .lineSequence()
             .filter { it.isNotBlank() }
             .associate { line ->
@@ -52,15 +80,21 @@ class ManufacturingSnapshotCodec {
                 require(separator > 0) { "Invalid snapshot line" }
                 line.substring(0, separator) to line.substring(separator + 1)
             }
-        require(fields.getValue("format").toInt() == FORMAT_VERSION)
-        require(fields.getValue("contentVersion") == payload.contentVersion)
-        return ManufacturingGameState(
-            economy = EconomyState(
-                inventory = decodeMap(fields.getValue("inventory")),
-                deposits = decodeDeposits(fields.getValue("deposits")),
-                spaceDollars = fields.getValue("spaceDollars").toLong(),
-                transactionSequence = fields.getValue("transactionSequence").toLong(),
+
+    private fun decodeFormat1(fields: Map<String, String>): ManufacturingGameState =
+        ManufacturingGameState(
+            economy = decodeEconomy(fields),
+            refining = RefiningState(
+                jobs = decodeRefiningJobs(fields.getValue("jobs")),
+                refundBuffer = decodeMap(fields.getValue("refundBuffer")),
+                nextJobSequence = fields.getValue("nextJobSequence").toLong(),
             ),
+            assembly = AssemblyState.empty(),
+        )
+
+    private fun decodeFormat2Or3(fields: Map<String, String>): ManufacturingGameState =
+        ManufacturingGameState(
+            economy = decodeEconomy(fields),
             refining = RefiningState(
                 jobs = decodeRefiningJobs(fields.getValue("refiningJobs")),
                 refundBuffer = decodeMap(fields.getValue("refiningRefundBuffer")),
@@ -72,7 +106,13 @@ class ManufacturingSnapshotCodec {
                 nextJobSequence = fields.getValue("assemblyNextJobSequence").toLong(),
             ),
         )
-    }
+
+    private fun decodeEconomy(fields: Map<String, String>): EconomyState = EconomyState(
+        inventory = decodeMap(fields.getValue("inventory")),
+        deposits = decodeDeposits(fields.getValue("deposits")),
+        spaceDollars = fields.getValue("spaceDollars").toLong(),
+        transactionSequence = fields.getValue("transactionSequence").toLong(),
+    )
 
     private fun encodeMap(values: Map<GameId, Long>): String = values.entries
         .sortedBy { it.key.value }
@@ -185,7 +225,8 @@ class ManufacturingSnapshotCodec {
     }
 
     companion object {
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
         const val DEFAULT_SLOT = "primary"
+        val SUPPORTED_FORMATS = 1..FORMAT_VERSION
     }
 }
