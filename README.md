@@ -4,23 +4,27 @@ Jeu Android en Kotlin basé sur LibGDX et KTX.
 
 ## État
 
-Les étapes 0 à 2 de la roadmap sont implémentées dans le code :
+Les étapes 0 à 3 de la roadmap sont implémentées dans le code :
 
 - projet Gradle multi-module ;
 - séparation stricte entre domaine, données, simulation, rendu et Android ;
 - activité de jeu en `sensorLandscape` ;
 - services de plateforme abstraits ;
-- carte 2.5D légère avec caméra orthographique ;
-- déplacement tactile, zoom par pincement et caméra bornée ;
-- base et trois gisements sélectionnables ;
+- carte 2.5D avec caméra orthographique, déplacement tactile et zoom borné ;
+- base, trois gisements et raffineur RF-01 sélectionnables ;
 - HUD compact utilisant les zones sûres de l’écran ;
 - ressources, inventaire, réserves et SpaceDollars en `Long` ;
-- extraction continue fondée sur une horloge monotone ;
-- collecte atomique sans duplication ;
-- vente atomique des ressources vendables ;
-- définitions économiques JSON versionnées ;
-- calculs fixes en millionièmes et arrondis à l’entier inférieur ;
+- extraction continue, collecte et vente atomiques ;
+- robot RF avec deux recettes et file de quatre tâches ;
+- ingrédients réservés au lancement ;
+- annulation avec remboursement à 100 %, 80 % ou 0 % selon l’avancement ;
+- produit terminé conservé si le stockage de sortie est plein ;
+- relance d’une recette en deux pressions maximum ;
+- sauvegarde locale atomique de l’économie et de la file RF ;
+- restauration d’une tâche active après fermeture forcée ;
+- définitions JSON versionnées et calculs économiques entiers ;
 - simulateur économique accéléré et test de 24 heures ;
+- effet visuel de raffinage actif ;
 - écran d’erreur fatal minimal ;
 - variantes Android `debug` et `release` ;
 - aucun workflow ni CI/CD.
@@ -29,13 +33,13 @@ Les critères nécessitant Android — compilation APK, installation, comporteme
 
 ## Modules
 
-- `androidApp` : activité Android et adaptateurs de plateforme ;
-- `game` : LibGDX/KTX, rendu, écrans, entrées et HUD économique ;
-- `domain` : contrats et règles économiques pures sans Android ni LibGDX ;
-- `data` : sauvegarde initiale et chargement des définitions JSON ;
+- `androidApp` : activité Android, cycle de vie et adaptateurs de plateforme ;
+- `game` : LibGDX/KTX, rendu, carte, entrées et HUD économique ;
+- `domain` : règles économiques et de raffinage pures sans Android ni LibGDX ;
+- `data` : stockage fichier local, snapshots et chargement JSON ;
 - `simulation` : horloges et simulation économique accélérée ;
 - `shared` : résultats, identifiants et journalisation ;
-- `assets` : données et ressources chargées à l’exécution.
+- `assets` : définitions économiques et recettes chargées à l’exécution.
 
 ## Préparer le wrapper Gradle
 
@@ -64,12 +68,15 @@ Aucun workflow n’est configuré. Après génération du wrapper :
 
 L’APK debug est produit dans `androidApp/build/outputs/apk/debug/`.
 
-Pour valider les étapes 1 et 2 sur appareil :
+Pour valider les étapes 1 à 3 sur appareil :
 
 1. tester le pan et le pincement dans les deux sens paysage ;
-2. vérifier que la caméra ne montre jamais l’extérieur de la carte ;
-3. sélectionner les trois gisements et observer les réserves diminuer ;
-4. collecter plusieurs fois et vérifier qu’une seconde collecte vide ne duplique rien ;
-5. vendre depuis la base et vérifier le stock et les SpaceDollars ;
-6. contrôler le HUD et les encoches en 640 × 320 et 844 × 390 ;
-7. confirmer 60 FPS sur l’appareil cible moyen.
+2. vérifier la carte et le HUD en 640 × 320 et 844 × 390 ;
+3. collecter les ressources des trois gisements puis vendre depuis la base ;
+4. sélectionner RF-01, choisir chaque recette et lancer plusieurs tâches ;
+5. forcer la fermeture pendant une tâche, rouvrir et vérifier la progression ;
+6. annuler avant 10 %, entre 10 % et 90 %, puis après 90 % ;
+7. remplir le stockage raffiné et vérifier que le produit terminé reste collectable ;
+8. collecter puis relancer la même recette en deux pressions maximum ;
+9. confirmer l’absence de duplication, d’overflow et de perte de ressources ;
+10. confirmer 60 FPS sur l’appareil cible moyen.
