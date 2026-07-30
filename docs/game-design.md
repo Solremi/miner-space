@@ -7,6 +7,8 @@ La source de vérité actuelle est répartie ainsi :
 - progression, étapes et critères : [`../roadmap.md`](../roadmap.md) ;
 - volume de contenu : [`content-v1.md`](content-v1.md) ;
 - économie et calculs : [`economy-and-formulas.md`](economy-and-formulas.md) ;
+- sauvegarde et cycle de vie : [`save-and-lifecycle.md`](save-and-lifecycle.md) ;
+- secteurs et exploration : [`sectors-exploration.md`](sectors-exploration.md) ;
 - UX paysage et accessibilité : [`ux-accessibility.md`](ux-accessibility.md) ;
 - frontière sans fin définitive : [`infinite-frontier.md`](infinite-frontier.md) ;
 - direction artistique : [`art-direction-bible.md`](art-direction-bible.md) ;
@@ -68,7 +70,13 @@ Le gameplay principal est en paysage. Les sessions durent généralement de 2 à
 4. améliorer le réseau permanent ;
 5. repartir vers une nouvelle destination.
 
-## 4. Règles non négociables
+## 4. Exploration
+
+La planète est divisée en secteurs. Chaque secteur doit proposer au moins une raison stratégique d’être ouvert : nouvelle ressource, raccourci logistique, technologie, mission, archive ou découverte rare. Le joueur scanne d’abord la zone afin de voir son coût et ses prérequis, puis choisit de l’ouvrir.
+
+Aucun secteur indispensable ne dépend d’un hasard pur ou d’un chemin irréversible. Les ressources rares nécessaires à l’explication du système sont garanties par un secteur ou une mission identifiée.
+
+## 5. Règles non négociables
 
 - aucune publicité obligatoire ;
 - aucune ressource obligatoire dépendant d’un hasard pur ;
@@ -78,14 +86,15 @@ Le gameplay principal est en paysage. Les sessions durent généralement de 2 à
 - aucune information importante dépendant uniquement de la couleur ;
 - aucune fonctionnalité déclarée terminée sans test de sauvegarde, paysage et performance.
 
-## 5. Priorité
+## 6. Priorité
 
 Valider d’abord :
 
 1. carte 2.5D paysage ;
 2. chaîne économique minimale ;
 3. sauvegarde hors ligne ;
-4. pluie de météorites ;
-5. robots et spécialisations.
+4. secteurs et exploration ;
+5. pluie de météorites ;
+6. robots et spécialisations.
 
 Le contenu de 30 jours n’est produit qu’après validation du vertical slice.

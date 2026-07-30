@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contentVersion": "0.4.0",
+  "contentVersion": "0.6.0",
   "items": [
     {"type":"resource","id":"raw_iron","nameKey":"resource.raw_iron","unitSalePrice":2,"storageCapacity":5000,"sellable":true},
     {"type":"resource","id":"raw_copper","nameKey":"resource.raw_copper","unitSalePrice":4,"storageCapacity":3500,"sellable":true},
@@ -11,6 +11,9 @@
     {"type":"resource","id":"component_sensor_array","nameKey":"resource.component_sensor_array","unitSalePrice":58,"storageCapacity":450,"sellable":true},
     {"type":"resource","id":"tech_extraction_protocol_item","nameKey":"resource.tech_extraction_protocol_item","unitSalePrice":0,"storageCapacity":20,"sellable":false},
     {"type":"resource","id":"tech_quantum_sorting_item","nameKey":"resource.tech_quantum_sorting_item","unitSalePrice":0,"storageCapacity":20,"sellable":false},
+    {"type":"resource","id":"rare_prismatic_ferrite","nameKey":"resource.rare_prismatic_ferrite","unitSalePrice":0,"storageCapacity":30,"sellable":false},
+    {"type":"resource","id":"rare_xenon_crystal","nameKey":"resource.rare_xenon_crystal","unitSalePrice":0,"storageCapacity":20,"sellable":false},
+    {"type":"resource","id":"rare_archive_fragment","nameKey":"resource.rare_archive_fragment","unitSalePrice":0,"storageCapacity":10,"sellable":false},
     {"type":"deposit","id":"deposit_iron_alpha","resourceId":"raw_iron","initialReserve":250000,"extractionPerSecond":3,"transportCapacity":420,"productionMultiplier":1000000},
     {"type":"deposit","id":"deposit_copper_beta","resourceId":"raw_copper","initialReserve":160000,"extractionPerSecond":2,"transportCapacity":280,"productionMultiplier":1000000},
     {"type":"deposit","id":"deposit_crystal_gamma","resourceId":"raw_crystal","initialReserve":70000,"extractionPerSecond":1,"transportCapacity":160,"productionMultiplier":1000000}

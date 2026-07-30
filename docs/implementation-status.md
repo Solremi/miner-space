@@ -7,64 +7,61 @@
 - aucun workflow, aucune CI/CD et aucun déploiement automatique sans demande explicite ;
 - vérifications locales ou manuelles uniquement.
 
-## Étapes 0 à 4
+## Étapes 0 à 5
 
 Statut : **implémentées dans le code, validations Android restantes**.
 
-Présent : fondation multi-module, carte 2.5D, économie entière, raffinage, assemblage, composants, technologies, files persistantes et ordre officiel des multiplicateurs.
+Présent : fondation multi-module, carte 2.5D, économie entière, raffinage, assemblage, technologies, snapshots alternés, migrations et progression hors ligne.
 
-## Étape 5 — Sauvegarde et progression hors ligne
+## Étape 6 — Secteurs et exploration
 
 Statut : **implémentée dans le code et vérifiée par contrôles Kotlin locaux, validation Gradle et Android restante**.
 
 Éléments présents :
 
-- conteneur local structuré avec version, séquence, date UTC, taille et checksum CRC32 ;
-- deux snapshots alternés `A` et `B` ;
-- écriture dans un fichier temporaire, synchronisation disque et remplacement atomique ;
-- conservation automatique de la copie précédente ;
-- lecture du snapshot valide possédant la séquence la plus récente ;
-- restauration automatique de l’alterné lorsqu’une copie est corrompue ;
-- compatibilité avec l’ancien fichier unique `primary.msv` ;
-- schéma de snapshot 3 ;
-- migration depuis le schéma 1 de raffinage et le schéma 2 de fabrication ;
-- normalisation vers les ressources, gisements, recettes et technologies du contenu courant ;
-- suppression contrôlée des références devenues inconnues ;
-- conservation des technologies uniquement lorsque leurs prérequis restent valides ;
-- progression hors ligne fondée sur l’heure UTC persistée ;
-- plafond initial de 8 heures, y compris lors d’une absence de 24 heures ou plus ;
-- absence de gain lors d’un retour significatif de l’horloge ;
-- extraction limitée par réserve, transport et stockage ;
-- gisements épuisés sans valeur négative ;
-- tâches RF et AS réconciliées jusqu’au temps effectivement simulé ;
-- produits terminés maintenus dans leur file jusqu’à collecte ;
-- rapport de retour indiquant absence, durée simulée, extraction, tâches terminées, épuisements, blocages, migration et restauration ;
-- écran de retour responsive avec cible tactile de 48 unités ;
-- sauvegarde réécrite après migration, récupération ou progression hors ligne ;
-- cycle Android renforcé sur `onPause`, `onStop`, mémoire faible et passage de l’interface en arrière-plan.
+- couche d’exploration accessible depuis la scène de production ;
+- six secteurs de vertical slice pour Ferrum Delta ;
+- secteur initial ouvert et cinq secteurs à scanner puis débloquer ;
+- brouillard distinguant clairement secteur inconnu, scanné et ouvert ;
+- scanner de niveau 1 à 3 dérivé des technologies installées ;
+- coûts réels en SpaceDollars ;
+- prérequis de secteurs, technologies et composants ;
+- consommation atomique des SpaceDollars et composants lors de l’ouverture ;
+- compensation automatique si l’une des deux sauvegardes échoue ;
+- budget et prérequis visibles avant ouverture ;
+- raison stratégique affichée pour chaque secteur ;
+- trois gisements rares garantis : ferrite prismatique, cristal xénon et fragment d’archive ;
+- ressources rares non vendables automatiquement ;
+- mission active persistée ;
+- bouton `MISSION` recentrant la caméra sur la cible ;
+- double toucher recentrant le secteur sélectionné ;
+- pan, pincement, limites strictes et bouton de retour vers la production ;
+- ouverture visuelle par masque rétractable sans particules ni allocation par image ;
+- sauvegarde séparée `exploration` bénéficiant des snapshots alternés et checksums de l’étape 5 ;
+- contenu versionné `0.6.0` dans `assets/data/sectors.json` ;
+- chemin de déblocage acyclique empêchant un secteur indispensable de devenir définitivement inaccessible.
 
 Contrôles déjà effectués hors Android :
 
-- compilation Kotlin du stockage alterné, du codec, du migrateur et du moteur hors ligne ;
-- compilation syntaxique de l’écran de retour avec les API LibGDX simulées ;
-- lecture et écriture de deux snapshots alternés ;
-- corruption volontaire du snapshot le plus récent et récupération de la copie précédente ;
-- migration des schémas 1 et 2 vers le schéma 3 ;
-- simulation de 1 minute, 8 heures et 24 heures ;
-- vérification que 24 heures produisent le même état que le plafond de 8 heures ;
-- simulation d’un gisement épuisé ;
-- simulation d’un stockage saturé ;
-- simulation d’une horloge déplacée vers l’arrière sans gain.
+- compilation Kotlin du moteur d’exploration ;
+- compilation Kotlin du chargeur JSON et du codec de progression ;
+- compilation syntaxique de l’écran avec les API LibGDX simulées ;
+- validation JSON des quatre fichiers de contenu `0.6.0` ;
+- ouverture séquentielle de tous les secteurs avec prérequis suffisants ;
+- rejet d’une seconde ouverture du même secteur ;
+- vérification des niveaux de scanner et de l’arbre technologique ;
+- vérification des dépenses cumulées et des trois découvertes rares ;
+- aller-retour complet de la sauvegarde d’exploration.
 
 Validation encore nécessaire sur une machine Android équipée du SDK :
 
 1. générer le wrapper Gradle et synchroniser le projet ;
 2. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
 3. assembler et installer l’APK debug ;
-4. tester arrière-plan, fermeture forcée et redémarrage réel du téléphone ;
-5. contrôler les absences de 1 minute, 8 heures et 24 heures ;
-6. remplir le stockage et épuiser un gisement avant une absence ;
-7. modifier manuellement l’heure du téléphone ;
-8. vérifier la récupération après corruption sur les fichiers de l’application ;
-9. contrôler 640 × 320 et 844 × 390 dans les deux sens paysage ;
-10. confirmer l’absence d’overflow, de gel et de duplication.
+4. parcourir tous les secteurs depuis une nouvelle sauvegarde ;
+5. vérifier la consommation réelle des coûts après retour en production ;
+6. fermer de force pendant une ouverture puis relancer ;
+7. tester le centrage mission, le pan et le pincement ;
+8. contrôler 640 × 320 et 844 × 390 dans les deux sens paysage ;
+9. activer le mode qualité faible et vérifier l’ouverture fluide ;
+10. confirmer l’absence d’overflow, de duplication et de secteur bloqué définitivement.

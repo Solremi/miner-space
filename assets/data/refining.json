@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contentVersion": "0.4.0",
+  "contentVersion": "0.6.0",
   "robot": {"id":"robot_rf_01","nameKey":"robot.rf_01","queueCapacity":4},
   "recipes": [
     {"id":"recipe_iron_ingot","nameKey":"recipe.iron_ingot","inputs":{"raw_iron":12},"outputResourceId":"refined_iron_ingot","outputQuantity":4,"durationSeconds":12},
