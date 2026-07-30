@@ -11,7 +11,7 @@ class SectorContentLoaderTest {
         val content = javaClass.getResource("/data/sectors.json")!!.readText()
         val definitions = SectorContentLoader().parse(content)
 
-        assertEquals("0.6.0", definitions.contentVersion)
+        assertEquals("0.7.0", definitions.contentVersion)
         assertEquals(6, definitions.sectors.size)
         assertEquals(3, definitions.sectors.values.count { it.rareDepositId != null })
         assertEquals(1_400L, definitions.sectors.getValue(GameId.of("sector_archive_ruins")).unlockCostSpaceDollars)

@@ -2,8 +2,9 @@ package fr.solremi.minerspace.game
 
 import fr.solremi.minerspace.domain.services.GameServices
 import fr.solremi.minerspace.game.screen.FatalErrorScreen
+import fr.solremi.minerspace.game.screen.GameplayHubScreen
+import fr.solremi.minerspace.game.screen.MeteorShowerScreen
 import fr.solremi.minerspace.game.screen.OfflineReturnScreen
-import fr.solremi.minerspace.game.screen.SectorExplorationScreen
 import fr.solremi.minerspace.shared.GameLogger
 import fr.solremi.minerspace.shared.SilentGameLogger
 import ktx.app.KtxGame
@@ -13,18 +14,15 @@ class MinerSpaceGame(
     private val services: GameServices,
     private val logger: GameLogger = SilentGameLogger,
 ) : KtxGame<KtxScreen>() {
-    private var gameplayAdded = false
+    private var gameplayScreensAdded = false
 
     override fun create() {
         try {
-            logger.info(TAG, "Starting Miner Space save and exploration bootstrap.")
+            logger.info(TAG, "Starting Miner Space save and offline bootstrap.")
             addScreen(
                 OfflineReturnScreen(services) {
-                    if (!gameplayAdded) {
-                        addScreen(SectorExplorationScreen(services))
-                        gameplayAdded = true
-                    }
-                    setScreen<SectorExplorationScreen>()
+                    addGameplayScreensIfNeeded()
+                    setScreen<GameplayHubScreen>()
                 },
             )
             setScreen<OfflineReturnScreen>()
@@ -38,6 +36,21 @@ class MinerSpaceGame(
             )
             setScreen<FatalErrorScreen>()
         }
+    }
+
+    private fun addGameplayScreensIfNeeded() {
+        if (gameplayScreensAdded) return
+        addScreen(
+            GameplayHubScreen(services) {
+                setScreen<MeteorShowerScreen>()
+            },
+        )
+        addScreen(
+            MeteorShowerScreen(services) {
+                setScreen<GameplayHubScreen>()
+            },
+        )
+        gameplayScreensAdded = true
     }
 
     private companion object {

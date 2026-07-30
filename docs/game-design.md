@@ -9,6 +9,7 @@ La source de vérité actuelle est répartie ainsi :
 - économie et calculs : [`economy-and-formulas.md`](economy-and-formulas.md) ;
 - sauvegarde et cycle de vie : [`save-and-lifecycle.md`](save-and-lifecycle.md) ;
 - secteurs et exploration : [`sectors-exploration.md`](sectors-exploration.md) ;
+- pluie de météorites : [`meteor-shower.md`](meteor-shower.md) ;
 - UX paysage et accessibilité : [`ux-accessibility.md`](ux-accessibility.md) ;
 - frontière sans fin définitive : [`infinite-frontier.md`](infinite-frontier.md) ;
 - direction artistique : [`art-direction-bible.md`](art-direction-bible.md) ;
@@ -76,7 +77,13 @@ La planète est divisée en secteurs. Chaque secteur doit proposer au moins une 
 
 Aucun secteur indispensable ne dépend d’un hasard pur ou d’un chemin irréversible. Les ressources rares nécessaires à l’explication du système sont garanties par un secteur ou une mission identifiée.
 
-## 5. Règles non négociables
+## 5. Pluie de météorites
+
+L’événement est une activité facultative de 45 à 90 secondes. Le joueur récupère les fragments par toucher ou glissement, avec une assistance activable. La perte de fragments ne pénalise jamais la campagne.
+
+Le prototype utilise une apparition rare garantie pour tester la présentation, la sauvegarde et le Codex. La récompense reste idempotente après une interruption système.
+
+## 6. Règles non négociables
 
 - aucune publicité obligatoire ;
 - aucune ressource obligatoire dépendant d’un hasard pur ;
@@ -86,7 +93,7 @@ Aucun secteur indispensable ne dépend d’un hasard pur ou d’un chemin irrév
 - aucune information importante dépendant uniquement de la couleur ;
 - aucune fonctionnalité déclarée terminée sans test de sauvegarde, paysage et performance.
 
-## 6. Priorité
+## 7. Priorité
 
 Valider d’abord :
 

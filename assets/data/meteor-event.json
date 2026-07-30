@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "0.7.0",
+  "durationSeconds": 60,
+  "spawnIntervalMillis": 1400,
+  "maxActiveFragments": 18,
+  "fragmentLifetimeMillis": 6500,
+  "rareSpawnAtSeconds": 30,
+  "standardResourceId": "meteor_fragment_standard",
+  "rareResourceId": "rare_meteor_core",
+  "standardRewardPerFragment": 1,
+  "rareRewardQuantity": 1,
+  "captureRadiusMillionths": 55000,
+  "assistedCaptureRadiusMillionths": 85000,
+  "assistAutoCollectIntervalMillis": 2500
+}

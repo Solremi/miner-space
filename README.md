@@ -4,29 +4,28 @@ Jeu Android en Kotlin basé sur LibGDX et KTX.
 
 ## État
 
-Les étapes 0 à 6 de la roadmap sont implémentées dans le code :
+Les étapes 0 à 7 de la roadmap sont implémentées dans le code :
 
 - architecture Gradle multi-module séparant Android, rendu, domaine, données et simulation ;
 - activité Android en `sensorLandscape` ;
 - carte 2.5D avec déplacement, pincement, limites et HUD respectant les zones sûres ;
-- économie entière et déterministe : extraction, collecte et vente ;
-- raffinage avec `RF-01`, réservation, file persistante, annulation et collecte ;
-- assemblage avec `AS-01`, composants et technologies installables ;
-- multiplicateurs appliqués dans l’ordre officiel avec un seul arrondi final ;
-- deux snapshots locaux alternés avec checksum, migrations et progression hors ligne ;
-- carte d’exploration avec six secteurs, brouillard, scanner, coûts et prérequis ;
-- trois gisements rares garantis, mission active et centrage automatique ;
-- ouverture visuelle légère compatible avec le mode qualité faible ;
+- économie entière et déterministe, raffinage, assemblage et technologies ;
+- snapshots alternés, migrations et progression hors ligne ;
+- six secteurs avec brouillard, scanner, coûts, missions et gisements rares ;
+- pluie de météorites de 60 secondes accessible depuis la planète ;
+- récupération par toucher ou glissement avec assistance activée par défaut ;
+- fragments standards, cœur rare de test, résumé et Codex temporaire ;
+- reprise exacte après interruption et attribution idempotente des récompenses ;
 - aucun workflow ni CI/CD.
 
-Les validations nécessitant Android — compilation APK, installation, fermeture forcée réelle, formats 640 × 320 et 844 × 390 et mesure des FPS — restent manuelles.
+Les validations nécessitant Android — compilation APK, installation, interruptions système réelles, formats 640 × 320 et 844 × 390 et mesure des FPS — restent manuelles.
 
 ## Modules
 
 - `androidApp` : activité Android, cycle de vie et adaptateurs de plateforme ;
-- `game` : LibGDX/KTX, carte de production, exploration, HUD et écran de retour ;
-- `domain` : économie, raffinage, assemblage, technologies et règles de secteurs ;
-- `data` : chargement JSON, migrations, codecs et snapshots alternés ;
+- `game` : production, exploration, événement météorique, HUD et écrans de retour ;
+- `domain` : règles économiques, industrielles, exploration et événements ;
+- `data` : contenu JSON, migrations, codecs et snapshots alternés ;
 - `simulation` : simulation active, accélérée et hors ligne ;
 - `shared` : identifiants, résultats et journalisation ;
 - `assets` : ressources et données versionnées.
@@ -54,15 +53,15 @@ Aucun workflow n’est configuré. Après génération du wrapper :
 ./gradlew :androidApp:assembleDebug
 ```
 
-Pour valider l’étape 6 sur appareil :
+Pour valider l’étape 7 sur appareil :
 
-1. ouvrir la carte avec le bouton `SECTEURS` ;
-2. scanner puis ouvrir la Crête cuivrée et les Plaines cristallines ;
-3. vérifier que les coûts et prérequis restent toujours visibles ;
-4. confirmer que les SpaceDollars et composants sont réellement consommés ;
-5. installer les technologies nécessaires puis ouvrir les secteurs profonds ;
-6. vérifier les trois gisements rares garantis ;
-7. utiliser `MISSION` pour centrer les Profondeurs xénon puis les Ruines d’archive ;
-8. fermer et relancer l’application pour vérifier la persistance des secteurs ;
+1. ouvrir `MÉTÉORES` depuis la scène de production ;
+2. récupérer des fragments par toucher puis par glissement ;
+3. désactiver et réactiver l’assistance ;
+4. vérifier le cœur rare vers 30 secondes ;
+5. passer en arrière-plan puis reprendre l’événement au même temps actif ;
+6. forcer la fermeture pendant l’événement puis pendant l’attribution ;
+7. vérifier l’absence de double récompense après chaque reprise ;
+8. ouvrir le Codex temporaire et le résumé ;
 9. contrôler 640 × 320 et 844 × 390 dans les deux sens paysage ;
-10. confirmer une ouverture fluide sans overflow en mode qualité faible.
+10. confirmer la stabilité avec 18 fragments actifs et l’absence d’overflow.

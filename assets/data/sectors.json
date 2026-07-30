@@ -1,87 +1,12 @@
 {
   "schemaVersion": 1,
-  "contentVersion": "0.6.0",
+  "contentVersion": "0.7.0",
   "sectors": [
-    {
-      "id": "sector_core_delta",
-      "nameKey": "sector.core_delta",
-      "strategicReason": "Base, fer et première chaîne de production",
-      "bounds": {"x": 300, "y": 270, "width": 720, "height": 420},
-      "unlockCostSpaceDollars": 0,
-      "scannerLevelRequired": 1,
-      "requiredSectorIds": [],
-      "requiredTechnologyIds": [],
-      "requiredComponents": {},
-      "missionTarget": false,
-      "initiallyUnlocked": true
-    },
-    {
-      "id": "sector_copper_ridge",
-      "nameKey": "sector.copper_ridge",
-      "strategicReason": "Cuivre pour les plaques et les premières piles",
-      "bounds": {"x": 1010, "y": 470, "width": 430, "height": 330},
-      "unlockCostSpaceDollars": 120,
-      "scannerLevelRequired": 1,
-      "requiredSectorIds": ["sector_core_delta"],
-      "requiredTechnologyIds": [],
-      "requiredComponents": {},
-      "missionTarget": false,
-      "initiallyUnlocked": false
-    },
-    {
-      "id": "sector_crystal_flats",
-      "nameKey": "sector.crystal_flats",
-      "strategicReason": "Cristal pour les capteurs et technologies",
-      "bounds": {"x": 1050, "y": 80, "width": 440, "height": 350},
-      "unlockCostSpaceDollars": 280,
-      "scannerLevelRequired": 1,
-      "requiredSectorIds": ["sector_copper_ridge"],
-      "requiredTechnologyIds": [],
-      "requiredComponents": {},
-      "missionTarget": false,
-      "initiallyUnlocked": false
-    },
-    {
-      "id": "sector_logistics_pass",
-      "nameKey": "sector.logistics_pass",
-      "strategicReason": "Route courte et gisement prismatique garanti",
-      "bounds": {"x": 110, "y": 70, "width": 430, "height": 270},
-      "unlockCostSpaceDollars": 450,
-      "scannerLevelRequired": 2,
-      "requiredSectorIds": ["sector_core_delta"],
-      "requiredTechnologyIds": ["tech_extraction_protocol"],
-      "requiredComponents": {"component_power_cell": 2},
-      "rareDepositId": "rare_deposit_prismatic_ferrite",
-      "missionTarget": false,
-      "initiallyUnlocked": false
-    },
-    {
-      "id": "sector_xenon_depths",
-      "nameKey": "sector.xenon_depths",
-      "strategicReason": "Xénon profond pour les technologies avancées",
-      "bounds": {"x": 1120, "y": 690, "width": 430, "height": 190},
-      "unlockCostSpaceDollars": 900,
-      "scannerLevelRequired": 2,
-      "requiredSectorIds": ["sector_copper_ridge"],
-      "requiredTechnologyIds": ["tech_extraction_protocol"],
-      "requiredComponents": {"component_sensor_array": 3},
-      "rareDepositId": "rare_deposit_xenon",
-      "missionTarget": true,
-      "initiallyUnlocked": false
-    },
-    {
-      "id": "sector_archive_ruins",
-      "nameKey": "sector.archive_ruins",
-      "strategicReason": "Archive ancienne, mission et fragment garanti",
-      "bounds": {"x": 570, "y": 700, "width": 480, "height": 180},
-      "unlockCostSpaceDollars": 1400,
-      "scannerLevelRequired": 3,
-      "requiredSectorIds": ["sector_xenon_depths", "sector_crystal_flats"],
-      "requiredTechnologyIds": ["tech_quantum_sorting"],
-      "requiredComponents": {"component_power_cell": 2, "component_sensor_array": 2},
-      "rareDepositId": "rare_deposit_archive_fragment",
-      "missionTarget": true,
-      "initiallyUnlocked": false
-    }
+    {"id":"sector_core_delta","nameKey":"sector.core_delta","strategicReason":"Base, fer et première chaîne de production","bounds":{"x":300,"y":270,"width":720,"height":420},"unlockCostSpaceDollars":0,"scannerLevelRequired":1,"requiredSectorIds":[],"requiredTechnologyIds":[],"requiredComponents":{},"missionTarget":false,"initiallyUnlocked":true},
+    {"id":"sector_copper_ridge","nameKey":"sector.copper_ridge","strategicReason":"Cuivre pour les plaques et les premières piles","bounds":{"x":1010,"y":470,"width":430,"height":330},"unlockCostSpaceDollars":120,"scannerLevelRequired":1,"requiredSectorIds":["sector_core_delta"],"requiredTechnologyIds":[],"requiredComponents":{},"missionTarget":false,"initiallyUnlocked":false},
+    {"id":"sector_crystal_flats","nameKey":"sector.crystal_flats","strategicReason":"Cristal pour les capteurs et technologies","bounds":{"x":1050,"y":80,"width":440,"height":350},"unlockCostSpaceDollars":280,"scannerLevelRequired":1,"requiredSectorIds":["sector_copper_ridge"],"requiredTechnologyIds":[],"requiredComponents":{},"missionTarget":false,"initiallyUnlocked":false},
+    {"id":"sector_logistics_pass","nameKey":"sector.logistics_pass","strategicReason":"Route courte et gisement prismatique garanti","bounds":{"x":110,"y":70,"width":430,"height":270},"unlockCostSpaceDollars":450,"scannerLevelRequired":2,"requiredSectorIds":["sector_core_delta"],"requiredTechnologyIds":["tech_extraction_protocol"],"requiredComponents":{"component_power_cell":2},"rareDepositId":"rare_deposit_prismatic_ferrite","missionTarget":false,"initiallyUnlocked":false},
+    {"id":"sector_xenon_depths","nameKey":"sector.xenon_depths","strategicReason":"Xénon profond pour les technologies avancées","bounds":{"x":1120,"y":690,"width":430,"height":190},"unlockCostSpaceDollars":900,"scannerLevelRequired":2,"requiredSectorIds":["sector_copper_ridge"],"requiredTechnologyIds":["tech_extraction_protocol"],"requiredComponents":{"component_sensor_array":3},"rareDepositId":"rare_deposit_xenon","missionTarget":true,"initiallyUnlocked":false},
+    {"id":"sector_archive_ruins","nameKey":"sector.archive_ruins","strategicReason":"Archive ancienne, mission et fragment garanti","bounds":{"x":570,"y":700,"width":480,"height":180},"unlockCostSpaceDollars":1400,"scannerLevelRequired":3,"requiredSectorIds":["sector_xenon_depths","sector_crystal_flats"],"requiredTechnologyIds":["tech_quantum_sorting"],"requiredComponents":{"component_power_cell":2,"component_sensor_array":2},"rareDepositId":"rare_deposit_archive_fragment","missionTarget":true,"initiallyUnlocked":false}
   ]
 }
