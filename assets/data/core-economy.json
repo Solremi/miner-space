@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contentVersion": "0.2.0",
+  "contentVersion": "0.3.0",
   "items": [
     {
       "type": "resource",
@@ -24,6 +24,22 @@
       "nameKey": "resource.raw_crystal",
       "unitSalePrice": 9,
       "storageCapacity": 1800,
+      "sellable": true
+    },
+    {
+      "type": "resource",
+      "id": "refined_iron_ingot",
+      "nameKey": "resource.refined_iron_ingot",
+      "unitSalePrice": 8,
+      "storageCapacity": 1500,
+      "sellable": true
+    },
+    {
+      "type": "resource",
+      "id": "refined_copper_plate",
+      "nameKey": "resource.refined_copper_plate",
+      "unitSalePrice": 17,
+      "storageCapacity": 1000,
       "sellable": true
     },
     {
