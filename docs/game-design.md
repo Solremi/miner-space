@@ -8,7 +8,11 @@ La source de vérité actuelle est répartie ainsi :
 - volume de contenu : [`content-v1.md`](content-v1.md) ;
 - économie et calculs : [`economy-and-formulas.md`](economy-and-formulas.md) ;
 - UX paysage et accessibilité : [`ux-accessibility.md`](ux-accessibility.md) ;
-- frontière sans fin définitive : [`infinite-frontier.md`](infinite-frontier.md).
+- frontière sans fin définitive : [`infinite-frontier.md`](infinite-frontier.md) ;
+- direction artistique : [`art-direction-bible.md`](art-direction-bible.md) ;
+- UI et HUD visuels : [`ui-visual-spec.md`](ui-visual-spec.md) ;
+- production des assets : [`asset-production-pack.md`](asset-production-pack.md) ;
+- prompts et références visuelles : [`visual-prompt-pack.md`](visual-prompt-pack.md).
 
 ## 1. Vision
 
