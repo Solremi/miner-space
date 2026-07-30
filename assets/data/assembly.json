@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "0.4.0",
+  "robot": {
+    "id": "robot_as_01",
+    "nameKey": "robot.as_01",
+    "queueCapacity": 4
+  },
+  "recipes": [
+    {
+      "id": "assembly_power_cell",
+      "nameKey": "assembly.power_cell",
+      "inputs": {
+        "refined_iron_ingot": 3,
+        "refined_copper_plate": 2
+      },
+      "outputResourceId": "component_power_cell",
+      "outputQuantity": 1,
+      "durationSeconds": 20,
+      "outputKind": "COMPONENT",
+      "requiredTechnologyIds": []
+    },
+    {
+      "id": "assembly_sensor_array",
+      "nameKey": "assembly.sensor_array",
+      "inputs": {
+        "refined_copper_plate": 2,
+        "raw_crystal": 4
+      },
+      "outputResourceId": "component_sensor_array",
+      "outputQuantity": 1,
+      "durationSeconds": 24,
+      "outputKind": "COMPONENT",
+      "requiredTechnologyIds": []
+    },
+    {
+      "id": "assembly_tech_extraction_protocol",
+      "nameKey": "assembly.tech_extraction_protocol",
+      "inputs": {
+        "component_power_cell": 2,
+        "component_sensor_array": 1
+      },
+      "outputResourceId": "tech_extraction_protocol_item",
+      "outputQuantity": 1,
+      "durationSeconds": 35,
+      "outputKind": "TECHNOLOGY",
+      "requiredTechnologyIds": []
+    },
+    {
+      "id": "assembly_tech_quantum_sorting",
+      "nameKey": "assembly.tech_quantum_sorting",
+      "inputs": {
+        "component_power_cell": 2,
+        "component_sensor_array": 2,
+        "refined_iron_ingot": 4
+      },
+      "outputResourceId": "tech_quantum_sorting_item",
+      "outputQuantity": 1,
+      "durationSeconds": 50,
+      "outputKind": "TECHNOLOGY",
+      "requiredTechnologyIds": [
+        "tech_extraction_protocol"
+      ]
+    }
+  ],
+  "technologies": [
+    {
+      "id": "tech_extraction_protocol",
+      "nameKey": "technology.extraction_protocol",
+      "itemResourceId": "tech_extraction_protocol_item",
+      "requiredTechnologyIds": [],
+      "extractionBonusMillionths": 200000
+    },
+    {
+      "id": "tech_quantum_sorting",
+      "nameKey": "technology.quantum_sorting",
+      "itemResourceId": "tech_quantum_sorting_item",
+      "requiredTechnologyIds": [
+        "tech_extraction_protocol"
+      ],
+      "extractionBonusMillionths": 150000
+    }
+  ]
+}

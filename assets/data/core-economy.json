@@ -1,73 +1,18 @@
 {
   "schemaVersion": 1,
-  "contentVersion": "0.3.0",
+  "contentVersion": "0.4.0",
   "items": [
-    {
-      "type": "resource",
-      "id": "raw_iron",
-      "nameKey": "resource.raw_iron",
-      "unitSalePrice": 2,
-      "storageCapacity": 5000,
-      "sellable": true
-    },
-    {
-      "type": "resource",
-      "id": "raw_copper",
-      "nameKey": "resource.raw_copper",
-      "unitSalePrice": 4,
-      "storageCapacity": 3500,
-      "sellable": true
-    },
-    {
-      "type": "resource",
-      "id": "raw_crystal",
-      "nameKey": "resource.raw_crystal",
-      "unitSalePrice": 9,
-      "storageCapacity": 1800,
-      "sellable": true
-    },
-    {
-      "type": "resource",
-      "id": "refined_iron_ingot",
-      "nameKey": "resource.refined_iron_ingot",
-      "unitSalePrice": 8,
-      "storageCapacity": 1500,
-      "sellable": true
-    },
-    {
-      "type": "resource",
-      "id": "refined_copper_plate",
-      "nameKey": "resource.refined_copper_plate",
-      "unitSalePrice": 17,
-      "storageCapacity": 1000,
-      "sellable": true
-    },
-    {
-      "type": "deposit",
-      "id": "deposit_iron_alpha",
-      "resourceId": "raw_iron",
-      "initialReserve": 250000,
-      "extractionPerSecond": 3,
-      "transportCapacity": 420,
-      "productionMultiplier": 1000000
-    },
-    {
-      "type": "deposit",
-      "id": "deposit_copper_beta",
-      "resourceId": "raw_copper",
-      "initialReserve": 160000,
-      "extractionPerSecond": 2,
-      "transportCapacity": 280,
-      "productionMultiplier": 1000000
-    },
-    {
-      "type": "deposit",
-      "id": "deposit_crystal_gamma",
-      "resourceId": "raw_crystal",
-      "initialReserve": 70000,
-      "extractionPerSecond": 1,
-      "transportCapacity": 160,
-      "productionMultiplier": 1000000
-    }
+    {"type":"resource","id":"raw_iron","nameKey":"resource.raw_iron","unitSalePrice":2,"storageCapacity":5000,"sellable":true},
+    {"type":"resource","id":"raw_copper","nameKey":"resource.raw_copper","unitSalePrice":4,"storageCapacity":3500,"sellable":true},
+    {"type":"resource","id":"raw_crystal","nameKey":"resource.raw_crystal","unitSalePrice":9,"storageCapacity":1800,"sellable":true},
+    {"type":"resource","id":"refined_iron_ingot","nameKey":"resource.refined_iron_ingot","unitSalePrice":8,"storageCapacity":1500,"sellable":true},
+    {"type":"resource","id":"refined_copper_plate","nameKey":"resource.refined_copper_plate","unitSalePrice":17,"storageCapacity":1000,"sellable":true},
+    {"type":"resource","id":"component_power_cell","nameKey":"resource.component_power_cell","unitSalePrice":44,"storageCapacity":600,"sellable":true},
+    {"type":"resource","id":"component_sensor_array","nameKey":"resource.component_sensor_array","unitSalePrice":58,"storageCapacity":450,"sellable":true},
+    {"type":"resource","id":"tech_extraction_protocol_item","nameKey":"resource.tech_extraction_protocol_item","unitSalePrice":0,"storageCapacity":20,"sellable":false},
+    {"type":"resource","id":"tech_quantum_sorting_item","nameKey":"resource.tech_quantum_sorting_item","unitSalePrice":0,"storageCapacity":20,"sellable":false},
+    {"type":"deposit","id":"deposit_iron_alpha","resourceId":"raw_iron","initialReserve":250000,"extractionPerSecond":3,"transportCapacity":420,"productionMultiplier":1000000},
+    {"type":"deposit","id":"deposit_copper_beta","resourceId":"raw_copper","initialReserve":160000,"extractionPerSecond":2,"transportCapacity":280,"productionMultiplier":1000000},
+    {"type":"deposit","id":"deposit_crystal_gamma","resourceId":"raw_crystal","initialReserve":70000,"extractionPerSecond":1,"transportCapacity":160,"productionMultiplier":1000000}
   ]
 }

@@ -11,90 +11,72 @@
 
 Statut : **implémentée dans le code, validation Android restante**.
 
-Éléments présents :
-
-- Gradle Kotlin multi-module : `androidApp`, `game`, `domain`, `data`, `simulation`, `shared` ;
-- Android, Kotlin, LibGDX et KTX déclarés ;
-- variantes `debug` et `release` ;
-- activité Android configurée avec `sensorLandscape` ;
-- domaine sans dépendance Android ni LibGDX ;
-- contrats de services de plateforme ;
-- écran fatal minimal et données versionnées.
+Présent : architecture multi-module, Android `sensorLandscape`, services abstraits, écran fatal et données versionnées.
 
 ## Étape 1 — Prototype de carte 2.5D
 
 Statut : **implémentée dans le code, validation visuelle et tactile sur appareil restante**.
 
-Éléments présents :
-
-- caméra orthographique ;
-- déplacement tactile et zoom par pincement ;
-- caméra bornée aux limites de la carte ;
-- base et trois gisements sélectionnables ;
-- recentrage sur la base ;
-- HUD séparé du monde et adapté aux zones sûres.
+Présent : caméra orthographique, pan, pincement, limites de carte, sélection, base, gisements, recentrage et HUD avec zones sûres.
 
 ## Étape 2 — Économie minimale
 
-Statut : **implémentée dans le code et vérifiée par compilation Kotlin locale, validation Gradle et Android restante**.
+Statut : **implémentée dans le code, validation Gradle et Android restante**.
 
-Éléments présents :
-
-- ressources, réserves, stocks et monnaie en `Long` ;
-- extraction continue calculée en secondes entières ;
-- calculs fixes en millionièmes et arrondi inférieur ;
-- collecte et vente atomiques ;
-- séquence de transaction monotone ;
-- définitions versionnées dans `assets/data/core-economy.json` ;
-- chargeur JSON refusant les nombres décimaux ;
-- simulateur accéléré et test de 86 400 secondes ;
-- HUD affichant monnaie, stocks, réserve, collecte et vitesse.
+Présent : économie en `Long`, extraction continue, collecte et vente atomiques, SpaceDollars, JSON versionné et simulation de 86 400 secondes.
 
 ## Étape 3 — Raffinage
+
+Statut : **implémentée dans le code, validation Gradle et Android restante**.
+
+Présent : `RF-01`, recettes, réservation des ingrédients, file persistante, annulation avec remboursement, collecte idempotente, blocage de stockage et sauvegarde locale atomique.
+
+## Étape 4 — Assemblage et technologies
 
 Statut : **implémentée dans le code et vérifiée par contrôles Kotlin locaux, validation Gradle et Android restante**.
 
 Éléments présents :
 
-- robot raffineur `robot_rf_01` visible et sélectionnable ;
-- recettes `recipe_iron_ingot` et `recipe_copper_plate` ;
-- ressources raffinées `refined_iron_ingot` et `refined_copper_plate` ;
-- file persistante de quatre tâches ;
-- réservation atomique des ingrédients au lancement ;
-- horodatages absolus permettant de reprendre une tâche après fermeture forcée ;
+- robot assembleur `robot_as_01` visible et sélectionnable ;
+- file AS persistante de quatre tâches ;
+- réservation atomique des entrées au lancement ;
 - statuts `QUEUED`, `RUNNING` et `READY_TO_COLLECT` ;
-- annulation avec remboursement de 100 % avant 10 %, 80 % jusqu’à 90 %, puis 0 % ;
-- zone de remboursement persistante si le stockage est plein ;
-- sortie terminée conservée dans la tâche tant que le stockage ne peut pas la recevoir ;
-- collecte idempotente empêchant une double attribution ;
-- sauvegarde locale atomique par fichier temporaire puis remplacement ;
-- snapshot de l’économie, des gisements, de la file, des réservations et des remboursements ;
-- sauvegarde immédiate après lancement, annulation, collecte et vente ;
-- sauvegarde au passage en arrière-plan et autosauvegarde périodique ;
-- choix de recette, lancement, relance, collecte et annulation depuis le HUD ;
-- relance de la recette courante en deux pressions maximum ;
-- effet visuel pulsé et barre de progression sur RF-01.
+- résultats terminés conservés lorsque le stockage est plein ;
+- composants `component_power_cell` et `component_sensor_array` ;
+- recettes de technologies `assembly_tech_extraction_protocol` et `assembly_tech_quantum_sorting` ;
+- technologies `tech_extraction_protocol` et `tech_quantum_sorting` ;
+- arbre de déblocage imposant la première technologie avant la seconde ;
+- installation consommant l’objet technologique fabriqué ;
+- objets technologiques non vendables, empêchant leur vente accidentelle ;
+- bonus d’extraction de 20 %, puis 15 % supplémentaires ;
+- addition des bonus d’une même catégorie avant multiplication ;
+- ordre officiel : base, robot, modules, synergies, spécialisation, technologies, planète, événement, prestige ;
+- calcul entier par `BigInteger` et un seul arrondi final inférieur ;
+- comparaison avant/après affichant 360 → 432 puis 432 → 486 unités par minute ;
+- snapshot de l’économie, du raffinage, de la file AS et des technologies installées ;
+- sauvegarde après fabrication, collecte et installation ;
+- HUD permettant de sélectionner une recette, lancer, collecter et installer ;
+- barre de progression et retour visuel sur `AS-01`.
 
 Contrôles déjà effectués hors Android :
 
-- compilation syntaxique du moteur de raffinage avec les dépendances de domaine simulées ;
+- compilation syntaxique des modules purs avec Kotlin ;
 - compilation syntaxique de l’écran avec les API LibGDX simulées ;
-- scénario lancement → fin → collecte ;
-- rejet d’une seconde collecte du même produit ;
-- contrôle des remboursements à 100 %, 80 % et 0 % ;
-- contrôle du maintien d’un résultat terminé lorsque le stockage est plein ;
-- aller-retour complet snapshot → fichier → restauration d’une tâche active ;
-- correction de la replanification afin qu’annuler une tâche en attente ne réinitialise pas la tâche active.
+- scénario matériau raffiné → composant → objet technologique → installation ;
+- vérification du verrouillage du second nœud ;
+- vérification du cumul des bonus technologiques ;
+- vérification de l’ordre officiel des multiplicateurs et de l’arrondi final ;
+- aller-retour complet du snapshot avec une tâche AS et une technologie installée ;
+- validation syntaxique des fichiers JSON 0.4.0.
 
 Validation encore nécessaire sur une machine Android équipée du SDK :
 
-1. générer le wrapper Gradle ;
-2. synchroniser le projet ;
-3. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
-4. assembler et installer l’APK debug ;
-5. lancer plusieurs recettes et vérifier l’ordre de file ;
-6. forcer la fermeture pendant une tâche puis rouvrir l’application ;
-7. tester les trois paliers de remboursement ;
-8. tester un stockage de sortie plein puis libéré ;
-9. contrôler le HUD en 640 × 320 et 844 × 390 dans les deux sens paysage ;
-10. confirmer l’absence d’overflow et 60 FPS sur l’appareil cible.
+1. générer le wrapper Gradle et synchroniser le projet ;
+2. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
+3. assembler et installer l’APK debug ;
+4. parcourir la chaîne complète depuis une nouvelle sauvegarde ;
+5. fermer de force pendant une tâche AS et vérifier sa reprise ;
+6. tester un stockage de sortie plein ;
+7. vérifier les comparaisons avant/après et les prérequis ;
+8. contrôler 640 × 320 et 844 × 390 dans les deux sens paysage ;
+9. confirmer l’absence d’overflow et la stabilité des FPS.
