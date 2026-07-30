@@ -5,7 +5,7 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
-import fr.solremi.minerspace.data.InMemorySaveService
+import fr.solremi.minerspace.data.FileSaveService
 import fr.solremi.minerspace.domain.services.AnalyticsService
 import fr.solremi.minerspace.domain.services.AudioService
 import fr.solremi.minerspace.domain.services.ClockService
@@ -33,7 +33,7 @@ class AndroidPlatformServices(
 
     val services = GameServices(
         clock = AndroidClockService,
-        save = InMemorySaveService(),
+        save = FileSaveService(context.filesDir.resolve("saves").toPath()),
         audio = NoOpAudioService,
         haptic = AndroidHapticService(context),
         rewardedAds = UnavailableRewardedAdsService,
