@@ -4,16 +4,23 @@ Jeu Android en Kotlin basé sur LibGDX et KTX.
 
 ## État
 
-L’étape 0 de la roadmap est initialisée :
+Les fondations de l’étape 0 et le prototype de carte de l’étape 1 sont implémentés :
 
 - projet Gradle multi-module ;
 - séparation stricte entre domaine, données, simulation, rendu et Android ;
 - activité de jeu en `sensorLandscape` ;
 - services de plateforme abstraits ;
-- scène LibGDX responsive minimale ;
+- carte 2.5D légère avec caméra orthographique ;
+- déplacement tactile et zoom par pincement ;
+- caméra bornée aux limites de la carte ;
+- base temporaire et trois gisements sélectionnables ;
+- bouton de recentrage sur la base ;
+- HUD compact et responsive utilisant les zones sûres de l’écran ;
 - écran d’erreur fatal minimal ;
 - variantes Android `debug` et `release` ;
 - aucun workflow ni CI/CD.
+
+Les critères nécessitant un appareil Android — installation, comportement tactile réel, contrôle visuel en 640 × 320 et 844 × 390, rotation et mesure des FPS — restent à valider manuellement.
 
 ## Modules
 
@@ -51,3 +58,12 @@ Aucun workflow n’est configuré. Après génération du wrapper :
 ```
 
 L’APK debug est produit dans `androidApp/build/outputs/apk/debug/`.
+
+Pour valider l’étape 1 sur appareil :
+
+1. tester le pan et le pincement dans les deux sens paysage ;
+2. vérifier que la caméra ne montre jamais l’extérieur de la carte ;
+3. sélectionner la base et chacun des trois gisements à plusieurs niveaux de zoom ;
+4. contrôler le HUD et les encoches en 640 × 320 et 844 × 390 ;
+5. vérifier le bouton `BASE` après déplacement et zoom ;
+6. confirmer 60 FPS sur l’appareil cible moyen.
