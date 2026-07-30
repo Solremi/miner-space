@@ -1,0 +1,3 @@
+-keep class com.badlogic.gdx.backends.android.AndroidApplication { *; }
+-keep class fr.solremi.minerspace.** { *; }
+-dontwarn com.badlogic.gdx.**

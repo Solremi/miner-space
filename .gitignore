@@ -1,0 +1,14 @@
+.gradle/
+.idea/
+*.iml
+local.properties
+build/
+**/build/
+androidApp/src/main/jniLibs/
+captures/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+Thumbs.db
+
+.gradle-bootstrap/

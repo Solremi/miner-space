@@ -1,0 +1,18 @@
+[versions]
+agp = "9.3.0"
+kotlin = "2.3.21"
+gdx = "1.14.2"
+ktx = "1.13.1-rc1"
+junit = "5.13.4"
+
+[libraries]
+gdx-core = { module = "com.badlogicgames.gdx:gdx", version.ref = "gdx" }
+gdx-backend-android = { module = "com.badlogicgames.gdx:gdx-backend-android", version.ref = "gdx" }
+ktx-app = { module = "io.github.libktx:ktx-app", version.ref = "ktx" }
+ktx-graphics = { module = "io.github.libktx:ktx-graphics", version.ref = "ktx" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
