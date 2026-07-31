@@ -10,6 +10,7 @@ La source de vérité actuelle est répartie ainsi :
 - sauvegarde et cycle de vie : [`save-and-lifecycle.md`](save-and-lifecycle.md) ;
 - secteurs et exploration : [`sectors-exploration.md`](sectors-exploration.md) ;
 - pluie de météorites : [`meteor-shower.md`](meteor-shower.md) ;
+- robots et automatisation : [`robots-automation.md`](robots-automation.md) ;
 - UX paysage et accessibilité : [`ux-accessibility.md`](ux-accessibility.md) ;
 - frontière sans fin définitive : [`infinite-frontier.md`](infinite-frontier.md) ;
 - direction artistique : [`art-direction-bible.md`](art-direction-bible.md) ;
@@ -83,7 +84,13 @@ L’événement est une activité facultative de 45 à 90 secondes. Le joueur r�
 
 Le prototype utilise une apparition rare garantie pour tester la présentation, la sauvegarde et le Codex. La récompense reste idempotente après une interruption système.
 
-## 6. Règles non négociables
+## 6. Robots et automatisation
+
+Les quatre familles EX, RF, AS et LG possèdent une identité persistante. Les niveaux augmentent progressivement le nombre de files et transforment le châssis visible. Les priorités restent lisibles directement dans le gestionnaire de flotte.
+
+Le robot logistique déplace réellement les ressources déjà produites, sans production implicite. Les traits et la maîtrise améliorent les performances, mais aucun trait n’applique un malus rendant un robot inutilisable.
+
+## 7. Règles non négociables
 
 - aucune publicité obligatoire ;
 - aucune ressource obligatoire dépendant d’un hasard pur ;
@@ -93,7 +100,7 @@ Le prototype utilise une apparition rare garantie pour tester la présentation, 
 - aucune information importante dépendant uniquement de la couleur ;
 - aucune fonctionnalité déclarée terminée sans test de sauvegarde, paysage et performance.
 
-## 7. Priorité
+## 8. Priorité
 
 Valider d’abord :
 

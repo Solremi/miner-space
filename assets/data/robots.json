@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "0.8.0",
+  "masteryThresholds": {
+    "NOVICE": 0,
+    "EXPERIENCED": 250,
+    "EXPERT": 1500,
+    "VETERAN": 6000
+  },
+  "visibleUnitsByQuality": {
+    "LOW": 18,
+    "MEDIUM": 32,
+    "HIGH": 50
+  },
+  "families": [
+    {
+      "family": "EXTRACTOR",
+      "nameKey": "robot.family.extractor",
+      "defaultName": "Aster",
+      "serialPrefix": "FD-EX",
+      "defaultTrait": "PROSPECTOR",
+      "maxLevel": 5,
+      "baseLogisticsPerSecond": 0,
+      "upgradeCostsSpaceDollars": [0, 120, 360, 1050, 2800]
+    },
+    {
+      "family": "REFINER",
+      "nameKey": "robot.family.refiner",
+      "defaultName": "Rhea",
+      "serialPrefix": "FD-RF",
+      "defaultTrait": "PRECISE",
+      "maxLevel": 5,
+      "baseLogisticsPerSecond": 0,
+      "upgradeCostsSpaceDollars": [0, 160, 480, 1350, 3400]
+    },
+    {
+      "family": "ASSEMBLER",
+      "nameKey": "robot.family.assembler",
+      "defaultName": "Kestrel",
+      "serialPrefix": "FD-AS",
+      "defaultTrait": "FAST",
+      "maxLevel": 5,
+      "baseLogisticsPerSecond": 0,
+      "upgradeCostsSpaceDollars": [0, 220, 660, 1800, 4600]
+    },
+    {
+      "family": "LOGISTICS",
+      "nameKey": "robot.family.logistics",
+      "defaultName": "Nox",
+      "serialPrefix": "FD-LG",
+      "defaultTrait": "STABLE",
+      "maxLevel": 5,
+      "baseLogisticsPerSecond": 4,
+      "upgradeCostsSpaceDollars": [0, 180, 540, 1500, 3900]
+    }
+  ]
+}

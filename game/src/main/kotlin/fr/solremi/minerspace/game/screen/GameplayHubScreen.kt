@@ -16,13 +16,11 @@ import fr.solremi.minerspace.domain.services.GameServices
 import ktx.app.KtxScreen
 import kotlin.math.max
 
-/**
- * Conserve la scène production/exploration de l'étape 6 intacte et ajoute
- * seulement un accès persistant à l'événement météorique.
- */
+/** Conserve les scènes de production et d'exploration, puis ajoute les accès transverses. */
 class GameplayHubScreen(
     services: GameServices,
     private val onMeteorRequested: () -> Unit,
+    private val onRobotsRequested: () -> Unit,
 ) : KtxScreen {
     private val gameplay = SectorExplorationScreen(services)
     private val camera = OrthographicCamera()
@@ -31,13 +29,21 @@ class GameplayHubScreen(
     private val batch = SpriteBatch()
     private val font = BitmapFont().apply { data.setScale(.64f) }
     private var delegatedInput: InputProcessor? = null
-    private val meteorInput = object : InputAdapter() {
+    private val overlayInput = object : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             val point = Vector2(screenX.toFloat(), screenY.toFloat())
             viewport.unproject(point)
-            if (!meteorButton().contains(point)) return false
-            onMeteorRequested()
-            return true
+            return when {
+                meteorButton().contains(point) -> {
+                    onMeteorRequested()
+                    true
+                }
+                robotsButton().contains(point) -> {
+                    onRobotsRequested()
+                    true
+                }
+                else -> false
+            }
         }
     }
     private var input = InputMultiplexer()
@@ -61,43 +67,60 @@ class GameplayHubScreen(
 
     override fun render(delta: Float) {
         gameplay.render(delta)
-        drawMeteorButton()
+        drawOverlayButtons()
     }
 
     private fun installInput() {
         input = InputMultiplexer()
-        input.addProcessor(meteorInput)
+        input.addProcessor(overlayInput)
         delegatedInput?.let(input::addProcessor)
         Gdx.input.inputProcessor = input
     }
 
-    private fun drawMeteorButton() {
+    private fun drawOverlayButtons() {
         viewport.apply()
         camera.update()
-        val button = meteorButton()
+        val meteor = meteorButton()
+        val robots = robotsButton()
         shapes.projectionMatrix = camera.combined
         shapes.begin(ShapeRenderer.ShapeType.Filled)
-        shapes.color = BUTTON
-        shapes.rect(button.x, button.y, button.width, button.height)
-        shapes.color = ACCENT
-        shapes.rect(button.x, button.y, button.width, 4f)
+        drawButton(meteor, METEOR_ACCENT)
+        drawButton(robots, ROBOT_ACCENT)
         shapes.end()
 
         batch.projectionMatrix = camera.combined
         batch.begin()
         font.color = TEXT
-        font.draw(batch, "MÉTÉORES", button.x + 18f, button.y + 30f)
+        font.draw(batch, "MÉTÉORES", meteor.x + 18f, meteor.y + 30f)
+        font.draw(batch, "ROBOTS", robots.x + 24f, robots.y + 30f)
         batch.end()
     }
 
+    private fun drawButton(rect: Rectangle, accent: Color) {
+        shapes.color = BUTTON
+        shapes.rect(rect.x, rect.y, rect.width, rect.height)
+        shapes.color = accent
+        shapes.rect(rect.x, rect.y, rect.width, 4f)
+    }
+
     private fun meteorButton(): Rectangle {
+        val (left, top) = safeTopLeft()
+        return Rectangle(left, top - 48f, 118f, 48f)
+    }
+
+    private fun robotsButton(): Rectangle {
+        val meteor = meteorButton()
+        return Rectangle(meteor.x + meteor.width + 6f, meteor.y, 108f, 48f)
+    }
+
+    private fun safeTopLeft(): Pair<Float, Float> {
         val width = viewport.worldWidth
         val height = viewport.worldHeight
         val scaleX = width / Gdx.graphics.width.coerceAtLeast(1).toFloat()
         val scaleY = height / Gdx.graphics.height.coerceAtLeast(1).toFloat()
         val left = Gdx.graphics.safeInsetLeft * scaleX + 8f
         val top = max(1f, height - Gdx.graphics.safeInsetTop * scaleY - 8f)
-        return Rectangle(left, top - 48f, 118f, 48f)
+        return left to top
     }
 
     override fun dispose() {
@@ -110,7 +133,8 @@ class GameplayHubScreen(
 
     private companion object {
         val BUTTON = Color(.075f, .17f, .25f, 1f)
-        val ACCENT = Color(.92f, .48f, 1f, 1f)
+        val METEOR_ACCENT = Color(.92f, .48f, 1f, 1f)
+        val ROBOT_ACCENT = Color(.20f, .82f, .88f, 1f)
         val TEXT = Color(.94f, .96f, 1f, 1f)
     }
 }

@@ -5,6 +5,7 @@ import fr.solremi.minerspace.game.screen.FatalErrorScreen
 import fr.solremi.minerspace.game.screen.GameplayHubScreen
 import fr.solremi.minerspace.game.screen.MeteorShowerScreen
 import fr.solremi.minerspace.game.screen.OfflineReturnScreen
+import fr.solremi.minerspace.game.screen.RobotFleetScreen
 import fr.solremi.minerspace.shared.GameLogger
 import fr.solremi.minerspace.shared.SilentGameLogger
 import ktx.app.KtxGame
@@ -41,12 +42,19 @@ class MinerSpaceGame(
     private fun addGameplayScreensIfNeeded() {
         if (gameplayScreensAdded) return
         addScreen(
-            GameplayHubScreen(services) {
-                setScreen<MeteorShowerScreen>()
-            },
+            GameplayHubScreen(
+                services = services,
+                onMeteorRequested = { setScreen<MeteorShowerScreen>() },
+                onRobotsRequested = { setScreen<RobotFleetScreen>() },
+            ),
         )
         addScreen(
             MeteorShowerScreen(services) {
+                setScreen<GameplayHubScreen>()
+            },
+        )
+        addScreen(
+            RobotFleetScreen(services) {
                 setScreen<GameplayHubScreen>()
             },
         )

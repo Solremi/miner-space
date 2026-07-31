@@ -7,63 +7,66 @@
 - aucun workflow, aucune CI/CD et aucun déploiement automatique sans demande explicite ;
 - vérifications locales ou manuelles uniquement.
 
-## Étapes 0 à 6
+## Étapes 0 à 7
 
 Statut : **implémentées dans le code, validations Android restantes**.
 
-Présent : fondation multi-module, carte 2.5D, économie, raffinage, assemblage, technologies, sauvegarde hors ligne, secteurs et exploration.
+Présent : fondation, carte, économie, production, sauvegarde hors ligne, exploration et pluie de météorites.
 
-## Étape 7 — Prototype de plaisir interactif
+## Étape 8 — Robots et automatisation avancée
 
 Statut : **implémentée dans le code et vérifiée par contrôles Kotlin locaux, validation Gradle et Android restante**.
 
 Éléments présents :
 
-- accès `MÉTÉORES` depuis la scène de production ;
-- événement de 60 secondes, dans la plage prévue de 45 à 90 secondes ;
-- 18 fragments actifs maximum ;
-- apparition toutes les 1,4 seconde ;
-- durée de présence de 6,5 secondes ;
-- capture par toucher et glissement ;
-- rayon de capture généreux ;
-- assistance activée par défaut, désactivable, avec rayon élargi et récupération automatique des fragments anciens ;
-- cœur météorique rare apparaissant à 30 secondes ;
-- fragments standards et ressource rare non vendables automatiquement ;
-- aucune récompense nécessaire à la campagne ;
-- pause fondée sur le temps actif lors d’un arrière-plan ou d’une fermeture ;
-- sauvegarde séparée `meteor_event` avec fragments, progression, assistance et Codex ;
-- attribution en deux phases avec totaux attendus ;
-- récupération après arrêt avant ou après l’écriture de l’inventaire sans duplication ;
-- résumé de récompense ;
-- Codex temporaire de trois entrées ;
-- rendu par formes simples, traînées courtes et plafond strict ;
-- HUD et commandes respectant les zones sûres et des cibles de 48 unités ;
-- contenu versionné `0.7.0` dans `assets/data/meteor-event.json`.
+- accès `ROBOTS` depuis la scène principale ;
+- quatre familles EX, RF, AS et LG ;
+- identités initiales Aster, Rhea, Kestrel et Nox ;
+- numéro de série stable et unique par robot ;
+- cinq niveaux fonctionnels par famille ;
+- une file aux niveaux 1 et 2, deux files aux niveaux 3 et 4, trois files au niveau 5 ;
+- redistribution des tâches RF et AS encore en attente sur les files disponibles ;
+- tâches déjà actives ou terminées jamais redémarrées ;
+- robot logistique transférant réellement les quantités en attente vers l’inventaire ;
+- conservation exacte des ressources pendant les transferts ;
+- respect des capacités de stockage ;
+- cinq priorités : équilibrée, mission, désengorgement, ressource rare et valeur ;
+- quatre paliers de maîtrise ;
+- cinq traits uniquement bénéfiques ;
+- statistiques de travail et de temps actif ;
+- trois paliers d’évolution visuelle ;
+- qualité faible à 18 unités, moyenne à 32 et élevée à 50 ;
+- positions visuelles pré-calculées et rendu par formes simples ;
+- sauvegarde séparée `robots` avec snapshots alternés et checksum ;
+- contenu versionné `0.8.0` dans `assets/data/robots.json` ;
+- coûts d’amélioration configurables en SpaceDollars ;
+- compensation économique si la sauvegarde robotique d’une amélioration échoue.
 
 Contrôles déjà effectués hors Android :
 
-- compilation Kotlin du moteur d’événement ;
-- compilation Kotlin du chargeur et du codec ;
-- compilation syntaxique des écrans avec les API LibGDX simulées ;
-- validation JSON des cinq fichiers de contenu `0.7.0` ;
-- simulation complète de 60 secondes ;
-- vérification permanente du plafond de 18 fragments ;
-- vérification de la capture unique ;
-- vérification de la récupération rare avec assistance ;
-- aller-retour complet de la sauvegarde en cours d’événement ;
-- arrêt simulé avant l’écriture de l’inventaire ;
-- arrêt simulé après l’écriture de l’inventaire ;
-- résultat identique et sans double crédit dans les deux cas.
+- compilation Kotlin du moteur robotique ;
+- compilation Kotlin du chargeur JSON et du codec ;
+- compilation syntaxique de l’écran et de la navigation avec les API LibGDX simulées ;
+- validation du fichier `robots.json` ;
+- vérification des quatre identités uniques ;
+- vérification des cinq niveaux et des trois files ;
+- planification de six tâches sur trois files en deux vagues ;
+- simulation logistique avec conservation exacte des ressources ;
+- vérification des limites de stockage ;
+- vérification que chaque trait reste au-dessus de la capacité de base ;
+- progression de maîtrise jusqu’au niveau expert ;
+- vérification de 50 unités en qualité élevée ;
+- aller-retour complet de la sauvegarde robotique.
 
 Validation encore nécessaire sur une machine Android équipée du SDK :
 
 1. générer le wrapper Gradle et synchroniser le projet ;
 2. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
 3. assembler et installer l’APK debug ;
-4. tester toucher et glissement sur téléphone ;
-5. tester l’assistance activée et désactivée ;
-6. interrompre par appel, verrouillage, arrière-plan et fermeture forcée ;
-7. interrompre précisément pendant l’attribution ;
+4. améliorer chaque famille sur une sauvegarde réelle ;
+5. tester plusieurs tâches RF et AS avant et après déblocage des files ;
+6. vérifier plusieurs priorités du robot LG avec stockage presque plein ;
+7. fermer de force pendant un transfert et une amélioration ;
 8. contrôler 640 × 320 et 844 × 390 dans les deux sens paysage ;
-9. confirmer l’absence de masquage du HUD essentiel ;
-10. confirmer la stabilité avec la densité maximale autorisée.
+9. tester les trois niveaux de qualité ;
+10. confirmer une fréquence stable avec 50 unités et l’absence d’overflow.
