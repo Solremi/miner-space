@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "1.0.0",
+  "generatedBy": "fr.solremi.minerspace.data.content.FerrumDeltaContentFactory",
+  "completionProgressPoints": 32000,
+  "budgets": {
+    "sectors": 14,
+    "deposits": 34,
+    "rawResources": 9,
+    "refinedMaterials": 9,
+    "components": 24,
+    "technologies": 14,
+    "modules": 24,
+    "mainMissions": 42,
+    "secondaryMissions": 36,
+    "masteryCollectionMissions": 20,
+    "contracts": 12,
+    "achievements": 8,
+    "events": 12,
+    "codexEntries": 120,
+    "collections": 10,
+    "narrativeMilestones": 5,
+    "transmissions": 12
+  },
+  "profiles": [
+    {"id":"VERY_ACTIVE","completionDaysWithoutAds":22,"completionDaysWithMaximumConfiguredAds":18},
+    {"id":"REGULAR","completionDaysWithoutAds":32,"completionDaysWithMaximumConfiguredAds":27},
+    {"id":"CASUAL","completionDaysWithoutAds":50,"completionDaysWithMaximumConfiguredAds":44}
+  ]
+}

@@ -7,14 +7,15 @@ import org.junit.jupiter.api.Test
 
 class SectorContentLoaderTest {
     @Test
-    fun `loads Ferrum Delta sectors with strategic reasons`() {
+    fun `loads complete Ferrum Delta map with strategic reasons`() {
         val content = javaClass.getResource("/data/sectors.json")!!.readText()
         val definitions = SectorContentLoader().parse(content)
 
         assertEquals("0.7.0", definitions.contentVersion)
-        assertEquals(6, definitions.sectors.size)
+        assertEquals(14, definitions.sectors.size)
         assertEquals(3, definitions.sectors.values.count { it.rareDepositId != null })
-        assertEquals(1_400L, definitions.sectors.getValue(GameId.of("sector_archive_ruins")).unlockCostSpaceDollars)
+        assertEquals(3_900L, definitions.sectors.getValue(GameId.of("sector_archive_ruins")).unlockCostSpaceDollars)
+        assertEquals(1, definitions.sectors.values.count { it.initiallyUnlocked })
     }
 
     @Test

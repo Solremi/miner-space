@@ -10,10 +10,10 @@ import org.junit.jupiter.api.Test
 
 class NarrativeContentAndCodecTest {
     @Test
-    fun `loader parses four ordered chapters and veteran target`() {
+    fun `loader parses twelve transmissions and veteran target`() {
         val definitions = NarrativeContentLoader().parse(CONTENT)
         assertEquals("0.11.0", definitions.contentVersion)
-        assertEquals(4, definitions.chapters.size)
+        assertEquals(12, definitions.chapters.size)
         assertEquals(GameId.of("robot_extractor_01"), definitions.veteranRobotId)
         assertEquals(6000L, definitions.veteranMasteryPoints)
     }
