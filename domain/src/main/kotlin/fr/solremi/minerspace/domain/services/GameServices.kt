@@ -11,7 +11,6 @@ data class SavePayload(
 )
 
 enum class SaveWriteStatus { WRITTEN, REJECTED, FAILED }
-
 data class RewardedAdRequest(val offerId: String, val requestId: String)
 sealed interface RewardedAdResult {
     data class Granted(val rewardId: String) : RewardedAdResult
@@ -22,11 +21,24 @@ sealed interface RewardedAdResult {
 enum class ConsentState { UNKNOWN, REQUIRED, NOT_REQUIRED, GRANTED, DENIED }
 data class NotificationRequest(val id: String, val titleKey: String, val bodyKey: String, val triggerAtEpochMillis: Long)
 enum class LifecycleState { FOREGROUND, BACKGROUND }
+enum class SoundCue { INTERACTION, PRODUCTION_COMPLETE, RARITY, ERROR, SECTOR_OPEN, LAUNCH }
 fun interface LifecycleObserver { fun onStateChanged(state: LifecycleState) }
 interface ClockService { fun nowEpochMillis(): Long; fun monotonicMillis(): Long }
 interface SaveService { fun loadLatest(slotId: String = "primary"): SavePayload?; fun save(payload: SavePayload): SaveWriteStatus; fun clear(slotId: String = "primary") }
-interface AudioService { fun setMusicEnabled(enabled: Boolean); fun setSoundEnabled(enabled: Boolean); fun pause(); fun resume() }
-interface HapticService { fun impact(); fun success(); fun warning() }
+interface AudioService {
+    fun setMusicEnabled(enabled: Boolean)
+    fun setSoundEnabled(enabled: Boolean)
+    fun setMasterVolume(volume: Float) = Unit
+    fun play(cue: SoundCue) = Unit
+    fun pause()
+    fun resume()
+}
+interface HapticService {
+    fun setEnabled(enabled: Boolean) = Unit
+    fun impact()
+    fun success()
+    fun warning()
+}
 interface RewardedAdsService { fun isAvailable(offerId: String): Boolean; fun show(request: RewardedAdRequest, onResult: (RewardedAdResult) -> Unit) }
 interface ConsentService { fun currentState(): ConsentState; fun requestIfNeeded(onComplete: (ConsentState) -> Unit) }
 interface NotificationService { fun schedule(request: NotificationRequest): Boolean; fun cancel(id: String); fun cancelAll() }

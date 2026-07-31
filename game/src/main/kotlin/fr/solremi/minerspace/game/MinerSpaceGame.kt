@@ -1,22 +1,28 @@
 package fr.solremi.minerspace.game
 
 import fr.solremi.minerspace.domain.services.GameServices
-import fr.solremi.minerspace.game.screen.*
+import fr.solremi.minerspace.game.presentation.PresentationController
+import fr.solremi.minerspace.game.screen.FatalErrorScreen
+import fr.solremi.minerspace.game.screen.MeteorShowerScreen
+import fr.solremi.minerspace.game.screen.MissionControlScreen
+import fr.solremi.minerspace.game.screen.NarrativeArchiveScreen
+import fr.solremi.minerspace.game.screen.OfflineReturnScreen
+import fr.solremi.minerspace.game.screen.PresentationGameplayScreen
+import fr.solremi.minerspace.game.screen.PresentationSettingsScreen
+import fr.solremi.minerspace.game.screen.RobotFleetScreen
+import fr.solremi.minerspace.game.screen.StrategyLabScreen
 import fr.solremi.minerspace.shared.GameLogger
 import fr.solremi.minerspace.shared.SilentGameLogger
 import ktx.app.KtxGame
 import ktx.app.KtxScreen
 
-class MinerSpaceGame(
-    private val services: GameServices,
-    private val logger: GameLogger = SilentGameLogger,
-) : KtxGame<KtxScreen>() {
-    private var gameplayScreensAdded = false
+class MinerSpaceGame(private val services: GameServices, private val logger: GameLogger = SilentGameLogger) : KtxGame<KtxScreen>() {
+    private var added = false
 
     override fun create() {
         try {
-            logger.info(TAG, "Starting Miner Space save and offline bootstrap.")
-            addScreen(OfflineReturnScreen(services) { addGameplayScreensIfNeeded(); setScreen<GameplayHubScreen>() })
+            PresentationController.loadAndApply(services)
+            addScreen(OfflineReturnScreen(services) { addScreens(); setScreen<PresentationGameplayScreen>() })
             setScreen<OfflineReturnScreen>()
         } catch (failure: Throwable) {
             logger.error(TAG, "Unable to create the initial scene.", failure)
@@ -25,24 +31,24 @@ class MinerSpaceGame(
         }
     }
 
-    private fun addGameplayScreensIfNeeded() {
-        if (gameplayScreensAdded) return
-        addScreen(
-            GameplayHubScreen(
-                services = services,
-                onMeteorRequested = { setScreen<MeteorShowerScreen>() },
-                onRobotsRequested = { setScreen<RobotFleetScreen>() },
-                onStrategyRequested = { setScreen<StrategyLabScreen>() },
-                onMissionsRequested = { setScreen<MissionControlScreen>() },
-                onArchivesRequested = { setScreen<NarrativeArchiveScreen>() },
-            ),
-        )
-        addScreen(MeteorShowerScreen(services) { setScreen<GameplayHubScreen>() })
-        addScreen(RobotFleetScreen(services) { setScreen<GameplayHubScreen>() })
-        addScreen(StrategyLabScreen(services) { setScreen<GameplayHubScreen>() })
-        addScreen(MissionControlScreen(services) { setScreen<GameplayHubScreen>() })
-        addScreen(NarrativeArchiveScreen(services) { setScreen<GameplayHubScreen>() })
-        gameplayScreensAdded = true
+    private fun addScreens() {
+        if (added) return
+        addScreen(PresentationGameplayScreen(
+            services,
+            { setScreen<MeteorShowerScreen>() },
+            { setScreen<RobotFleetScreen>() },
+            { setScreen<StrategyLabScreen>() },
+            { setScreen<MissionControlScreen>() },
+            { setScreen<NarrativeArchiveScreen>() },
+            { setScreen<PresentationSettingsScreen>() },
+        ))
+        addScreen(MeteorShowerScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(RobotFleetScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(StrategyLabScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(MissionControlScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(NarrativeArchiveScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(PresentationSettingsScreen(services) { setScreen<PresentationGameplayScreen>() })
+        added = true
     }
 
     private companion object { const val TAG = "MinerSpaceGame" }
