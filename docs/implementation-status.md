@@ -7,84 +7,72 @@
 - aucun workflow, aucune CI/CD et aucun déploiement automatique sans demande explicite ;
 - vérifications locales ou manuelles uniquement.
 
-## Étapes 0 à 13
+## Étapes 0 à 14
 
 Statut : **implémentées dans le code, validations Android restantes**.
 
-Présent : fondation, économie, sauvegarde hors ligne, Ferrum Delta, événements, robots, stratégie, missions, Codex, narration, feedback visuel, audio et simulations de campagne.
+Présent : fondation, économie, sauvegarde hors ligne, Ferrum Delta, événements, robots, stratégie, missions, Codex, narration, présentation, prestige et boucle Cryos IX.
 
-## Étape 14 — Prestige et Cryos IX
+## Étape 15 — Frontière interplanétaire 1.0
 
-Statut : **transfert planétaire, acquis permanents et boucle Cryos IX implémentés ; validation Gradle complète et Android restante**.
+Statut : **génération contrôlée, validation automatique, carte stellaire et sauvegarde multi-planètes implémentées ; validation Gradle complète et Android restante**.
 
-### Prestige et transfert
+### Contenu
 
-- bouton `DÉPART` depuis Ferrum Delta ;
-- chantier `sector_launch_shipyard` obligatoire ;
-- robot à au moins 6 000 points de maîtrise obligatoire ;
-- récompense de 3 Noyaux Stellaires ;
-- slot séparé `prestige` ;
-- état préparé écrit avant toute réinitialisation ;
-- totaux attendus de Noyaux, Codex, archives, bonus et vétéran enregistrés ;
-- rapprochement idempotent utilisant `max` et unions d’ensembles ;
-- réinitialisation des slots planétaires `primary`, `sectors`, `strategy`, `robots` et `meteor_event` ;
-- conservation physique et permanente des slots `progression` et `narrative` ;
-- création idempotente du slot `cryos_ix` ;
-- démarrage automatique sur l’écran de reprise si un transfert reste préparé ;
-- démarrage automatique sur Cryos IX après clôture ;
-- retour vers Ferrum désactivé après prestige ;
-- identité, numéro, niveau, trait, maîtrise et statistiques du vétéran conservés.
+- manifeste `assets/data/interplanetary-frontier.json` version `1.0.0` ;
+- trois familles visuelles : volcanique, cristalline et épave ;
+- huit modèles de secteurs préconstruits par famille ;
+- douze modificateurs avec familles autorisées, exclusions et capacités requises ;
+- six objectifs couvrant extraction, raffinage, réseau, événement, artefact et construction ;
+- trois difficultés : 2, 4 et 7 jours ciblés ;
+- cinq à sept secteurs par monde ;
+- récompenses permanentes, cosmétiques ou de collection.
 
-### Cryos IX
+### Garanties de génération
 
-- manifeste versionné `1.0.0` dans `assets/data/cryos-ix.json` ;
-- factory déterministe `CryosIxContentFactory` ;
-- 6 secteurs ;
-- budget de 16 gisements ;
-- 4 ressources locales, dont cryonite et saumure thermique ;
-- 4 matériaux raffinés locaux ;
-- 8 recettes spécifiques ;
-- 5 technologies propres ;
-- 8 modules de l’ensemble thermique ;
-- 12 missions principales et 10 secondaires ;
-- 3 événements adaptés au froid et non punitifs ;
-- 2 découvertes narratives ;
-- 30 entrées de Codex ;
-- état persistant : énergie, chaleur, exposition au froid, réseau, stocks, secteurs, technologies, modules, missions et frontière ;
-- installation initiale de la base ;
-- génération d’énergie et chauffage séparés ;
-- extraction refusée si la chaleur du secteur est insuffisante ;
-- consommation réelle de chaleur à chaque extraction ou ouverture ;
-- cinq nœuds thermiques consommant cryonite raffinée et verre thermique ;
-- ouverture progressive des six secteurs ;
-- fabrication d’un module cryogénique ;
-- objectif final exigeant six secteurs, cinq nœuds, trois technologies et un module ;
-- déblocage de la frontière interplanétaire.
+- graine principale persistée ;
+- index de génération persistant ;
+- définition complète de chaque monde sauvegardée ;
+- chaîne linéaire de secteurs toujours réalisable ;
+- capacité de l’objectif garantie dans les secteurs sélectionnés ;
+- compatibilité famille/modificateurs vérifiée ;
+- paires de modificateurs incompatibles rejetées ;
+- aucune répétition immédiate de la même famille avec les mêmes modificateurs ;
+- trois mondes incomplets maximum ;
+- aucune mention de fin définitive du jeu.
+
+### Sauvegarde et reprise
+
+- slot séparé `frontier` ;
+- plusieurs mondes conservés simultanément ;
+- monde sélectionné et dernière signature sauvegardés ;
+- progression, actions, statut et dates conservés ;
+- récompenses permanentes, cosmétiques et de collection persistées ;
+- retour automatique sur la frontière lorsqu’un monde actif existe après fermeture.
 
 ### Contrôles effectués hors Android
 
-- compilation Kotlin du moteur de prestige ;
-- compilation Kotlin du moteur thermique Cryos IX ;
-- compilation des deux codecs ;
-- validation JSON du manifeste Cryos IX ;
-- aller-retour du transfert préparé dans le codec ;
-- rapprochement répété sans dépasser 3 Noyaux Stellaires ;
-- simulation d’une interruption avant la clôture ;
-- simulation complète de la boucle Cryos IX ;
-- six secteurs ouverts et cinq nœuds construits ;
-- douze missions principales validées ;
-- objectif final impossible sans réseau, technologies et module ;
-- aller-retour complet du slot `cryos_ix`.
+- compilation Kotlin du modèle, du générateur, du moteur et du codec ;
+- compilation syntaxique des nouveaux écrans et de la navigation avec API simulées ;
+- validation JSON du manifeste ;
+- génération locale de 10 000 mondes ;
+- zéro combinaison impossible ;
+- zéro chaîne cassée ;
+- zéro répétition immédiate ;
+- test des trois difficultés ;
+- limite de trois mondes actifs ;
+- stabilisation d’un monde et attribution unique de sa récompense ;
+- aller-retour exact d’une sauvegarde multi-planètes.
 
 ### Validation Android restante
 
 1. générer le wrapper Gradle et synchroniser le projet ;
 2. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
 3. assembler et installer l’APK debug ;
-4. réaliser le transfert avec une sauvegarde Ferrum complète ;
-5. fermer de force à chaque phase du protocole ;
-6. vérifier les acquis permanents et le vétéran après reprise ;
-7. parcourir la boucle Cryos IX sur une nouvelle sauvegarde transférée ;
-8. tester 640 × 320 et 844 × 390 dans les deux sens paysage ;
-9. mesurer les FPS en qualité faible ;
-10. confirmer l’absence de perte, duplication et blocage permanent.
+4. ouvrir la frontière depuis une sauvegarde Cryos IX terminée ;
+5. interrompre et reprendre plusieurs mondes ;
+6. vérifier les récompenses et archives ;
+7. tester 640 × 320 et 844 × 390 dans les deux sens paysage ;
+8. mesurer les FPS en qualité faible ;
+9. vérifier l’absence d’overflow et de chargement perceptible ;
+10. confirmer l’absence de combinaison impossible sur appareil.

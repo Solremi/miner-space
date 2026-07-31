@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "1.0.0",
+  "generatedBy": "fr.solremi.minerspace.data.frontier.FrontierContentFactory",
+  "budgets": {
+    "visualFamilies": 3,
+    "validatedModifiers": 12,
+    "objectiveTemplates": 6,
+    "sectorTemplatesPerFamily": 8,
+    "difficultyLevels": 3,
+    "activeWorldLimit": 3,
+    "worldDurationDaysMin": 2,
+    "worldDurationDaysMax": 7
+  },
+  "families": ["VOLCANIC", "CRYSTALLINE", "DERELICT"],
+  "difficulties": ["SCOUT", "EXPEDITION", "DEEP"],
+  "rewardPolicy": ["PERMANENT_BONUS", "COSMETIC", "COLLECTION"],
+  "generationRules": [
+    "prebuilt_sector_templates_only",
+    "linear_reachable_progression_chain",
+    "family_and_modifier_compatibility",
+    "objective_capability_guaranteed",
+    "persistent_seed_and_full_world_snapshot",
+    "no_immediate_identical_family_modifier_signature",
+    "never_display_game_finished"
+  ]
+}

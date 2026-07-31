@@ -1,6 +1,8 @@
 package fr.solremi.minerspace.game
 
+import fr.solremi.minerspace.data.save.FrontierStateCodec
 import fr.solremi.minerspace.data.save.PrestigeStateCodec
+import fr.solremi.minerspace.domain.frontier.FrontierWorldStatus
 import fr.solremi.minerspace.domain.prestige.PlanetId
 import fr.solremi.minerspace.domain.prestige.PlanetPrestigeEngine
 import fr.solremi.minerspace.domain.services.GameServices
@@ -33,10 +35,16 @@ class MinerSpaceGame(private val services: GameServices, private val logger: Gam
         }.getOrElse { initial }
         when {
             prestige.pendingTransfer != null -> setScreen<PlanetTransferScreen>()
-            prestige.activePlanet == PlanetId.CRYOS_IX -> setScreen<CryosIxScreen>()
+            prestige.activePlanet == PlanetId.CRYOS_IX && hasActiveFrontierWorld() -> setScreen<InterplanetaryFrontierScreen>()
+            prestige.activePlanet == PlanetId.CRYOS_IX -> setScreen<CryosFrontierGatewayScreen>()
             else -> setScreen<PresentationGameplayScreen>()
         }
     }
+
+    private fun hasActiveFrontierWorld(): Boolean = runCatching {
+        val payload = services.save.loadLatest(FrontierStateCodec.SLOT_ID) ?: return@runCatching false
+        FrontierStateCodec().decode(payload).worlds.values.any { it.status == FrontierWorldStatus.ACTIVE }
+    }.getOrDefault(false)
 
     private fun addScreens() {
         if (added) return
@@ -59,9 +67,14 @@ class MinerSpaceGame(private val services: GameServices, private val logger: Gam
         addScreen(PlanetTransferScreen(
             services,
             onFerrumBack = { setScreen<PresentationGameplayScreen>() },
-            onCryosReady = { setScreen<CryosIxScreen>() },
+            onCryosReady = { setScreen<CryosFrontierGatewayScreen>() },
         ))
-        addScreen(CryosIxScreen(services) { setScreen<PlanetTransferScreen>() })
+        addScreen(CryosFrontierGatewayScreen(
+            services,
+            onTransferRequested = { setScreen<PlanetTransferScreen>() },
+            onFrontierRequested = { setScreen<InterplanetaryFrontierScreen>() },
+        ))
+        addScreen(InterplanetaryFrontierScreen(services) { setScreen<CryosFrontierGatewayScreen>() })
         added = true
     }
 
