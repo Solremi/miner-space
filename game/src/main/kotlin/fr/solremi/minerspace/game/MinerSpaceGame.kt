@@ -6,6 +6,7 @@ import fr.solremi.minerspace.game.screen.GameplayHubScreen
 import fr.solremi.minerspace.game.screen.MeteorShowerScreen
 import fr.solremi.minerspace.game.screen.OfflineReturnScreen
 import fr.solremi.minerspace.game.screen.RobotFleetScreen
+import fr.solremi.minerspace.game.screen.StrategyLabScreen
 import fr.solremi.minerspace.shared.GameLogger
 import fr.solremi.minerspace.shared.SilentGameLogger
 import ktx.app.KtxGame
@@ -29,12 +30,7 @@ class MinerSpaceGame(
             setScreen<OfflineReturnScreen>()
         } catch (failure: Throwable) {
             logger.error(TAG, "Unable to create the initial scene.", failure)
-            addScreen(
-                FatalErrorScreen(
-                    title = "Erreur de démarrage",
-                    details = failure.message ?: failure::class.simpleName.orEmpty(),
-                ),
-            )
+            addScreen(FatalErrorScreen("Erreur de démarrage", failure.message ?: failure::class.simpleName.orEmpty()))
             setScreen<FatalErrorScreen>()
         }
     }
@@ -46,22 +42,14 @@ class MinerSpaceGame(
                 services = services,
                 onMeteorRequested = { setScreen<MeteorShowerScreen>() },
                 onRobotsRequested = { setScreen<RobotFleetScreen>() },
+                onStrategyRequested = { setScreen<StrategyLabScreen>() },
             ),
         )
-        addScreen(
-            MeteorShowerScreen(services) {
-                setScreen<GameplayHubScreen>()
-            },
-        )
-        addScreen(
-            RobotFleetScreen(services) {
-                setScreen<GameplayHubScreen>()
-            },
-        )
+        addScreen(MeteorShowerScreen(services) { setScreen<GameplayHubScreen>() })
+        addScreen(RobotFleetScreen(services) { setScreen<GameplayHubScreen>() })
+        addScreen(StrategyLabScreen(services) { setScreen<GameplayHubScreen>() })
         gameplayScreensAdded = true
     }
 
-    private companion object {
-        const val TAG = "MinerSpaceGame"
-    }
+    private companion object { const val TAG = "MinerSpaceGame" }
 }

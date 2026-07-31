@@ -16,59 +16,38 @@ import fr.solremi.minerspace.domain.services.GameServices
 import ktx.app.KtxScreen
 import kotlin.math.max
 
-/** Conserve les scènes de production et d'exploration, puis ajoute les accès transverses. */
+/** Conserve production et exploration, puis ajoute les accès transverses. */
 class GameplayHubScreen(
     services: GameServices,
     private val onMeteorRequested: () -> Unit,
     private val onRobotsRequested: () -> Unit,
+    private val onStrategyRequested: () -> Unit,
 ) : KtxScreen {
     private val gameplay = SectorExplorationScreen(services)
     private val camera = OrthographicCamera()
     private val viewport = ExtendViewport(640f, 320f, 960f, 540f, camera)
     private val shapes = ShapeRenderer()
     private val batch = SpriteBatch()
-    private val font = BitmapFont().apply { data.setScale(.64f) }
+    private val font = BitmapFont().apply { data.setScale(.60f) }
     private var delegatedInput: InputProcessor? = null
     private val overlayInput = object : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             val point = Vector2(screenX.toFloat(), screenY.toFloat())
             viewport.unproject(point)
             return when {
-                meteorButton().contains(point) -> {
-                    onMeteorRequested()
-                    true
-                }
-                robotsButton().contains(point) -> {
-                    onRobotsRequested()
-                    true
-                }
+                meteorButton().contains(point) -> { onMeteorRequested(); true }
+                robotsButton().contains(point) -> { onRobotsRequested(); true }
+                strategyButton().contains(point) -> { onStrategyRequested(); true }
                 else -> false
             }
         }
     }
     private var input = InputMultiplexer()
 
-    override fun show() {
-        gameplay.show()
-        delegatedInput = Gdx.input.inputProcessor
-        installInput()
-    }
-
-    override fun hide() {
-        gameplay.hide()
-        if (Gdx.input.inputProcessor === input) Gdx.input.inputProcessor = null
-        delegatedInput = null
-    }
-
-    override fun resize(width: Int, height: Int) {
-        gameplay.resize(width, height)
-        viewport.update(width.coerceAtLeast(1), height.coerceAtLeast(1), true)
-    }
-
-    override fun render(delta: Float) {
-        gameplay.render(delta)
-        drawOverlayButtons()
-    }
+    override fun show() { gameplay.show(); delegatedInput = Gdx.input.inputProcessor; installInput() }
+    override fun hide() { gameplay.hide(); if (Gdx.input.inputProcessor === input) Gdx.input.inputProcessor = null; delegatedInput = null }
+    override fun resize(width: Int, height: Int) { gameplay.resize(width, height); viewport.update(width.coerceAtLeast(1), height.coerceAtLeast(1), true) }
+    override fun render(delta: Float) { gameplay.render(delta); drawOverlayButtons() }
 
     private fun installInput() {
         input = InputMultiplexer()
@@ -78,63 +57,42 @@ class GameplayHubScreen(
     }
 
     private fun drawOverlayButtons() {
-        viewport.apply()
-        camera.update()
-        val meteor = meteorButton()
-        val robots = robotsButton()
+        viewport.apply(); camera.update()
+        val meteor = meteorButton(); val robots = robotsButton(); val strategy = strategyButton()
         shapes.projectionMatrix = camera.combined
         shapes.begin(ShapeRenderer.ShapeType.Filled)
-        drawButton(meteor, METEOR_ACCENT)
-        drawButton(robots, ROBOT_ACCENT)
+        drawButton(meteor, METEOR_ACCENT); drawButton(robots, ROBOT_ACCENT); drawButton(strategy, STRATEGY_ACCENT)
         shapes.end()
-
         batch.projectionMatrix = camera.combined
-        batch.begin()
-        font.color = TEXT
-        font.draw(batch, "MÉTÉORES", meteor.x + 18f, meteor.y + 30f)
-        font.draw(batch, "ROBOTS", robots.x + 24f, robots.y + 30f)
+        batch.begin(); font.color = TEXT
+        font.draw(batch, "MÉTÉORES", meteor.x + 14f, meteor.y + 29f)
+        font.draw(batch, "ROBOTS", robots.x + 20f, robots.y + 29f)
+        font.draw(batch, "STRATÉGIE", strategy.x + 13f, strategy.y + 29f)
         batch.end()
     }
 
     private fun drawButton(rect: Rectangle, accent: Color) {
-        shapes.color = BUTTON
-        shapes.rect(rect.x, rect.y, rect.width, rect.height)
-        shapes.color = accent
-        shapes.rect(rect.x, rect.y, rect.width, 4f)
+        shapes.color = BUTTON; shapes.rect(rect.x, rect.y, rect.width, rect.height)
+        shapes.color = accent; shapes.rect(rect.x, rect.y, rect.width, 4f)
     }
 
-    private fun meteorButton(): Rectangle {
-        val (left, top) = safeTopLeft()
-        return Rectangle(left, top - 48f, 118f, 48f)
-    }
-
-    private fun robotsButton(): Rectangle {
-        val meteor = meteorButton()
-        return Rectangle(meteor.x + meteor.width + 6f, meteor.y, 108f, 48f)
-    }
+    private fun meteorButton(): Rectangle { val (left, top) = safeTopLeft(); return Rectangle(left, top - 48f, 108f, 48f) }
+    private fun robotsButton(): Rectangle { val previous = meteorButton(); return Rectangle(previous.x + previous.width + 6f, previous.y, 94f, 48f) }
+    private fun strategyButton(): Rectangle { val previous = robotsButton(); return Rectangle(previous.x + previous.width + 6f, previous.y, 112f, 48f) }
 
     private fun safeTopLeft(): Pair<Float, Float> {
-        val width = viewport.worldWidth
-        val height = viewport.worldHeight
-        val scaleX = width / Gdx.graphics.width.coerceAtLeast(1).toFloat()
-        val scaleY = height / Gdx.graphics.height.coerceAtLeast(1).toFloat()
-        val left = Gdx.graphics.safeInsetLeft * scaleX + 8f
-        val top = max(1f, height - Gdx.graphics.safeInsetTop * scaleY - 8f)
-        return left to top
+        val width = viewport.worldWidth; val height = viewport.worldHeight
+        val scaleX = width / Gdx.graphics.width.coerceAtLeast(1).toFloat(); val scaleY = height / Gdx.graphics.height.coerceAtLeast(1).toFloat()
+        return Gdx.graphics.safeInsetLeft * scaleX + 8f to max(1f, height - Gdx.graphics.safeInsetTop * scaleY - 8f)
     }
 
-    override fun dispose() {
-        hide()
-        gameplay.dispose()
-        shapes.dispose()
-        batch.dispose()
-        font.dispose()
-    }
+    override fun dispose() { hide(); gameplay.dispose(); shapes.dispose(); batch.dispose(); font.dispose() }
 
     private companion object {
         val BUTTON = Color(.075f, .17f, .25f, 1f)
         val METEOR_ACCENT = Color(.92f, .48f, 1f, 1f)
         val ROBOT_ACCENT = Color(.20f, .82f, .88f, 1f)
+        val STRATEGY_ACCENT = Color(.84f, .62f, .20f, 1f)
         val TEXT = Color(.94f, .96f, 1f, 1f)
     }
 }

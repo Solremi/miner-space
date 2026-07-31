@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "0.9.0",
+  "specializations": [
+    {"id":"INDUSTRIAL","nameKey":"specialization.industrial","bonuses":{"extraction":250000,"refiningSpeed":120000,"assemblySpeed":-80000,"logistics":-50000,"storage":0,"rareFind":-50000},"changeCostSpaceDollars":900,"cooldownSeconds":21600},
+    {"id":"LOGISTICS","nameKey":"specialization.logistics","bonuses":{"extraction":-50000,"refiningSpeed":0,"assemblySpeed":-30000,"logistics":250000,"storage":250000,"rareFind":0},"changeCostSpaceDollars":900,"cooldownSeconds":21600},
+    {"id":"RESEARCH","nameKey":"specialization.research","bonuses":{"extraction":-100000,"refiningSpeed":100000,"assemblySpeed":250000,"logistics":0,"storage":-50000,"rareFind":50000},"changeCostSpaceDollars":900,"cooldownSeconds":21600},
+    {"id":"PROSPECTOR","nameKey":"specialization.prospector","bonuses":{"extraction":120000,"refiningSpeed":-50000,"assemblySpeed":-100000,"logistics":80000,"storage":0,"rareFind":300000},"changeCostSpaceDollars":900,"cooldownSeconds":21600}
+  ],
+  "modules": [
+    {"id":"module_forge_drill","nameKey":"module.forge_drill","setId":"FORGE","bonuses":{"extraction":90000},"craftInputs":{"refined_iron_ingot":8,"component_power_cell":1},"craftCostSpaceDollars":180,"upgradeCostsSpaceDollars":[0,260,520],"maxLevel":3},
+    {"id":"module_forge_thermal","nameKey":"module.forge_thermal","setId":"FORGE","bonuses":{"refiningSpeed":80000,"assemblySpeed":30000},"craftInputs":{"refined_copper_plate":8,"component_power_cell":1},"craftCostSpaceDollars":200,"upgradeCostsSpaceDollars":[0,300,600],"maxLevel":3},
+    {"id":"module_forge_chassis","nameKey":"module.forge_chassis","setId":"FORGE","bonuses":{"storage":100000,"logistics":40000},"craftInputs":{"refined_iron_ingot":10,"component_sensor_array":1},"craftCostSpaceDollars":220,"upgradeCostsSpaceDollars":[0,330,660],"maxLevel":3},
+    {"id":"module_survey_optics","nameKey":"module.survey_optics","setId":"SURVEY","bonuses":{"rareFind":100000,"extraction":30000},"craftInputs":{"raw_crystal":12,"component_sensor_array":1},"craftCostSpaceDollars":210,"upgradeCostsSpaceDollars":[0,310,620],"maxLevel":3},
+    {"id":"module_survey_quantum","nameKey":"module.survey_quantum","setId":"SURVEY","bonuses":{"assemblySpeed":70000,"rareFind":50000},"craftInputs":{"refined_copper_plate":7,"component_sensor_array":2},"craftCostSpaceDollars":240,"upgradeCostsSpaceDollars":[0,360,720],"maxLevel":3},
+    {"id":"module_survey_archive","nameKey":"module.survey_archive","setId":"SURVEY","bonuses":{"refiningSpeed":40000,"logistics":50000,"rareFind":40000},"craftInputs":{"rare_archive_fragment":1,"component_power_cell":1},"craftCostSpaceDollars":260,"upgradeCostsSpaceDollars":[0,390,780],"maxLevel":3},
+    {"id":"module_storage_capsule","nameKey":"module.storage_capsule","setId":"NONE","bonuses":{"storage":140000},"craftInputs":{"refined_iron_ingot":6,"refined_copper_plate":4},"craftCostSpaceDollars":150,"upgradeCostsSpaceDollars":[0,230,460],"maxLevel":3},
+    {"id":"module_compact_battery","nameKey":"module.compact_battery","setId":"NONE","bonuses":{"logistics":90000,"refiningSpeed":20000},"craftInputs":{"component_power_cell":2,"refined_copper_plate":4},"craftCostSpaceDollars":170,"upgradeCostsSpaceDollars":[0,250,500],"maxLevel":3}
+  ],
+  "synergies": [
+    {"setId":"FORGE","requiredPieces":2,"bonuses":{"extraction":80000,"refiningSpeed":50000}},
+    {"setId":"FORGE","requiredPieces":3,"bonuses":{"extraction":100000,"assemblySpeed":80000}},
+    {"setId":"SURVEY","requiredPieces":2,"bonuses":{"rareFind":100000,"logistics":50000}},
+    {"setId":"SURVEY","requiredPieces":3,"bonuses":{"rareFind":120000,"assemblySpeed":70000}}
+  ]
+}
