@@ -23,13 +23,14 @@ class GameplayHubScreen(
     private val onRobotsRequested: () -> Unit,
     private val onStrategyRequested: () -> Unit,
     private val onMissionsRequested: () -> Unit,
+    private val onArchivesRequested: () -> Unit,
 ) : KtxScreen {
     private val gameplay = SectorExplorationScreen(services)
     private val camera = OrthographicCamera()
     private val viewport = ExtendViewport(640f, 320f, 960f, 540f, camera)
     private val shapes = ShapeRenderer()
     private val batch = SpriteBatch()
-    private val font = BitmapFont().apply { data.setScale(.56f) }
+    private val font = BitmapFont().apply { data.setScale(.50f) }
     private var delegatedInput: InputProcessor? = null
     private val overlayInput = object : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
@@ -39,6 +40,7 @@ class GameplayHubScreen(
                 robotsButton().contains(point) -> { onRobotsRequested(); true }
                 strategyButton().contains(point) -> { onStrategyRequested(); true }
                 missionsButton().contains(point) -> { onMissionsRequested(); true }
+                archivesButton().contains(point) -> { onArchivesRequested(); true }
                 else -> false
             }
         }
@@ -56,15 +58,16 @@ class GameplayHubScreen(
 
     private fun drawOverlayButtons() {
         viewport.apply(); camera.update()
-        val meteor = meteorButton(); val robots = robotsButton(); val strategy = strategyButton(); val missions = missionsButton()
+        val meteor = meteorButton(); val robots = robotsButton(); val strategy = strategyButton(); val missions = missionsButton(); val archives = archivesButton()
         shapes.projectionMatrix = camera.combined; shapes.begin(ShapeRenderer.ShapeType.Filled)
-        drawButton(meteor, METEOR_ACCENT); drawButton(robots, ROBOT_ACCENT); drawButton(strategy, STRATEGY_ACCENT); drawButton(missions, MISSION_ACCENT)
+        drawButton(meteor, METEOR_ACCENT); drawButton(robots, ROBOT_ACCENT); drawButton(strategy, STRATEGY_ACCENT); drawButton(missions, MISSION_ACCENT); drawButton(archives, ARCHIVE_ACCENT)
         shapes.end()
         batch.projectionMatrix = camera.combined; batch.begin(); font.color = TEXT
-        font.draw(batch, "MÉTÉORES", meteor.x + 11f, meteor.y + 29f)
-        font.draw(batch, "ROBOTS", robots.x + 17f, robots.y + 29f)
-        font.draw(batch, "STRATÉGIE", strategy.x + 10f, strategy.y + 29f)
-        font.draw(batch, "MISSIONS", missions.x + 13f, missions.y + 29f)
+        font.draw(batch, "MÉTÉORES", meteor.x + 9f, meteor.y + 29f)
+        font.draw(batch, "ROBOTS", robots.x + 14f, robots.y + 29f)
+        font.draw(batch, "STRATÉGIE", strategy.x + 8f, strategy.y + 29f)
+        font.draw(batch, "MISSIONS", missions.x + 10f, missions.y + 29f)
+        font.draw(batch, "ARCHIVES", archives.x + 9f, archives.y + 29f)
         batch.end()
     }
 
@@ -73,10 +76,11 @@ class GameplayHubScreen(
         shapes.color = accent; shapes.rect(rect.x, rect.y, rect.width, 4f)
     }
 
-    private fun meteorButton(): Rectangle { val (left, top) = safeTopLeft(); return Rectangle(left, top - 48f, 100f, 48f) }
-    private fun robotsButton(): Rectangle { val p = meteorButton(); return Rectangle(p.x + p.width + 5f, p.y, 86f, 48f) }
-    private fun strategyButton(): Rectangle { val p = robotsButton(); return Rectangle(p.x + p.width + 5f, p.y, 104f, 48f) }
-    private fun missionsButton(): Rectangle { val p = strategyButton(); return Rectangle(p.x + p.width + 5f, p.y, 96f, 48f) }
+    private fun meteorButton(): Rectangle { val (left, top) = safeTopLeft(); return Rectangle(left, top - 48f, 92f, 48f) }
+    private fun robotsButton(): Rectangle { val p = meteorButton(); return Rectangle(p.x + p.width + 5f, p.y, 78f, 48f) }
+    private fun strategyButton(): Rectangle { val p = robotsButton(); return Rectangle(p.x + p.width + 5f, p.y, 94f, 48f) }
+    private fun missionsButton(): Rectangle { val p = strategyButton(); return Rectangle(p.x + p.width + 5f, p.y, 86f, 48f) }
+    private fun archivesButton(): Rectangle { val p = missionsButton(); return Rectangle(p.x + p.width + 5f, p.y, 88f, 48f) }
 
     private fun safeTopLeft(): Pair<Float, Float> {
         val width = viewport.worldWidth; val height = viewport.worldHeight
@@ -92,6 +96,7 @@ class GameplayHubScreen(
         val ROBOT_ACCENT = Color(.20f, .82f, .88f, 1f)
         val STRATEGY_ACCENT = Color(.84f, .62f, .20f, 1f)
         val MISSION_ACCENT = Color(.36f, .78f, .42f, 1f)
+        val ARCHIVE_ACCENT = Color(.72f, .46f, .96f, 1f)
         val TEXT = Color(.94f, .96f, 1f, 1f)
     }
 }

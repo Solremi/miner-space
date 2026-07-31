@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "0.11.0",
+  "veteranMasteryPoints": 6000,
+  "veteranRobotId": "robot_extractor_01",
+  "chapters": [
+    {"id":"nova_first_contact","kind":"CONTACT","title":"NOVA · Signal de réveil","transmission":"Je suis NOVA. Les ruines de Ferrum Delta répondent encore. Vous pouvez ignorer ce signal et poursuivre la production.","archiveSummary":"NOVA a établi un canal local sans interrompre la gestion de la base.","requiredUnlockedSectors":1,"requiredTechnologies":0,"requiredResolvedChapterIds":[],"anomalyChancePercent":100,"pityAttempts":1,"deterministicSeed":11,"rareResourceId":null,"grantsVeteranRobot":false},
+    {"id":"ruins_prismatic_echo","kind":"RUINS","title":"Écho prismatique","transmission":"Une structure sous la Passe logistique renvoie un spectre minéral cohérent. Une analyse courte peut suffire.","archiveSummary":"Les ruines ont livré une ferrite prismatique stabilisée après analyse répétée.","requiredUnlockedSectors":2,"requiredTechnologies":0,"requiredResolvedChapterIds":["nova_first_contact"],"anomalyChancePercent":45,"pityAttempts":2,"deterministicSeed":29,"rareResourceId":"rare_prismatic_ferrite","grantsVeteranRobot":false},
+    {"id":"archive_memory_fault","kind":"ANOMALY","title":"Mémoire d’archive","transmission":"Le fragment d’archive change de signature à chaque lecture. Je conserverai les échecs pour garantir une conclusion.","archiveSummary":"La protection contre la malchance a forcé une découverte au troisième essai au plus tard.","requiredUnlockedSectors":3,"requiredTechnologies":1,"requiredResolvedChapterIds":["ruins_prismatic_echo"],"anomalyChancePercent":25,"pityAttempts":3,"deterministicSeed":47,"rareResourceId":"rare_archive_fragment","grantsVeteranRobot":false},
+    {"id":"legacy_veteran_protocol","kind":"LEGACY","title":"Protocole vétéran","transmission":"Une matrice xénon contient un profil de terrain ancien. Aster peut l’intégrer sans perdre son identité ni ses statistiques.","archiveSummary":"Aster a reçu le protocole vétéran et conserve son nom, son numéro de série et son historique.","requiredUnlockedSectors":4,"requiredTechnologies":2,"requiredResolvedChapterIds":["archive_memory_fault"],"anomalyChancePercent":20,"pityAttempts":4,"deterministicSeed":73,"rareResourceId":"rare_xenon_crystal","grantsVeteranRobot":true}
+  ]
+}

@@ -34,12 +34,14 @@ class MinerSpaceGame(
                 onRobotsRequested = { setScreen<RobotFleetScreen>() },
                 onStrategyRequested = { setScreen<StrategyLabScreen>() },
                 onMissionsRequested = { setScreen<MissionControlScreen>() },
+                onArchivesRequested = { setScreen<NarrativeArchiveScreen>() },
             ),
         )
         addScreen(MeteorShowerScreen(services) { setScreen<GameplayHubScreen>() })
         addScreen(RobotFleetScreen(services) { setScreen<GameplayHubScreen>() })
         addScreen(StrategyLabScreen(services) { setScreen<GameplayHubScreen>() })
         addScreen(MissionControlScreen(services) { setScreen<GameplayHubScreen>() })
+        addScreen(NarrativeArchiveScreen(services) { setScreen<GameplayHubScreen>() })
         gameplayScreensAdded = true
     }
 
