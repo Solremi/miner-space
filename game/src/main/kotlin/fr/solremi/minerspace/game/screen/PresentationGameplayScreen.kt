@@ -29,6 +29,7 @@ class PresentationGameplayScreen(
     onMissionsRequested: () -> Unit,
     onArchivesRequested: () -> Unit,
     private val onPresentationRequested: () -> Unit,
+    private val onTransferRequested: () -> Unit,
 ) : KtxScreen {
     private val gameplay = GameplayHubScreen(
         services,
@@ -51,6 +52,10 @@ class PresentationGameplayScreen(
             val point = Vector2(screenX.toFloat(), screenY.toFloat()); viewport.unproject(point)
             val x = point.x / viewport.worldWidth; val y = point.y / viewport.worldHeight
             return when {
+                transferButton().contains(point) -> {
+                    PresentationController.play(services, SoundCue.LAUNCH, FeedbackKind.LAUNCH, x, y)
+                    onTransferRequested(); true
+                }
                 settingsButton().contains(point) -> {
                     PresentationController.play(services, SoundCue.INTERACTION, FeedbackKind.INTERACTION, x, y)
                     onPresentationRequested(); true
@@ -89,14 +94,20 @@ class PresentationGameplayScreen(
         gameplay.render(delta)
         viewport.apply(); camera.update()
         effects.draw(camera, viewport.worldWidth, viewport.worldHeight, services.clock.monotonicMillis())
-        val button = settingsButton()
+        val transfer = transferButton(); val settings = settingsButton()
         shapes.projectionMatrix = camera.combined; shapes.begin(ShapeRenderer.ShapeType.Filled)
-        shapes.color = BUTTON; shapes.rect(button.x, button.y, button.width, button.height)
-        shapes.color = ACCENT; shapes.rect(button.x, button.y, button.width, 4f)
+        drawButton(transfer, TRANSFER_ACCENT)
+        drawButton(settings, ACCENT)
         shapes.end()
         batch.projectionMatrix = camera.combined; batch.begin(); font.color = TEXT
-        font.draw(batch, "FX", button.x + 15f, button.y + 29f)
+        font.draw(batch, "DÉPART", transfer.x + 10f, transfer.y + 29f)
+        font.draw(batch, "FX", settings.x + 15f, settings.y + 29f)
         batch.end()
+    }
+
+    private fun drawButton(rect: Rectangle, accent: Color) {
+        shapes.color = BUTTON; shapes.rect(rect.x, rect.y, rect.width, rect.height)
+        shapes.color = accent; shapes.rect(rect.x, rect.y, rect.width, 4f)
     }
 
     private fun cue(sound: SoundCue, kind: FeedbackKind, x: Float, y: Float): Boolean {
@@ -110,6 +121,7 @@ class PresentationGameplayScreen(
     private fun missionsButton(): Rectangle { val p = strategyButton(); return Rectangle(p.x + p.width + 5f, p.y, 86f, 48f) }
     private fun archivesButton(): Rectangle { val p = missionsButton(); return Rectangle(p.x + p.width + 5f, p.y, 88f, 48f) }
     private fun settingsButton(): Rectangle { val p = safeTopRight(); return Rectangle(p.first - 48f, p.second - 48f, 48f, 48f) }
+    private fun transferButton(): Rectangle { val p = settingsButton(); return Rectangle(p.x - 5f - 78f, p.y, 78f, 48f) }
 
     private fun safeTopLeft(): Pair<Float, Float> {
         val width = viewport.worldWidth; val height = viewport.worldHeight
@@ -127,6 +139,7 @@ class PresentationGameplayScreen(
     private companion object {
         val BUTTON = Color(.075f, .17f, .25f, .94f)
         val ACCENT = Color(.94f, .48f, .16f, 1f)
+        val TRANSFER_ACCENT = Color(.42f, .80f, .96f, 1f)
         val TEXT = Color(.94f, .96f, 1f, 1f)
     }
 }

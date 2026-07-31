@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "1.0.0",
+  "generatedBy": "fr.solremi.minerspace.data.cryos.CryosIxContentFactory",
+  "planetId": "cryos_ix",
+  "stellarCoreTransferReward": 3,
+  "budgets": {
+    "sectors": 6,
+    "deposits": 16,
+    "localResources": 4,
+    "newResources": 2,
+    "refinedMaterials": 4,
+    "specificRecipes": 8,
+    "technologies": 5,
+    "cryogenicModules": 8,
+    "synergySets": 1,
+    "mainMissions": 12,
+    "secondaryMissions": 10,
+    "coldEvents": 3,
+    "narrativeDiscoveries": 2,
+    "codexEntries": 30
+  },
+  "loop": [
+    "install_base",
+    "generate_energy_and_heat",
+    "extract_through_cold",
+    "build_thermal_network",
+    "craft_cryogenic_module",
+    "unlock_sectors",
+    "complete_planetary_objective",
+    "unlock_interplanetary_frontier"
+  ]
+}

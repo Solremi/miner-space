@@ -7,68 +7,84 @@
 - aucun workflow, aucune CI/CD et aucun déploiement automatique sans demande explicite ;
 - vérifications locales ou manuelles uniquement.
 
-## Étapes 0 à 12
+## Étapes 0 à 13
 
 Statut : **implémentées dans le code, validations Android restantes**.
 
-Présent : fondation, économie, sauvegarde hors ligne, exploration, événements, robots, stratégie, missions, contrats, tutoriel, Codex, narration, ressources rares, feedback visuel, réglages et audio essentiel.
+Présent : fondation, économie, sauvegarde hors ligne, Ferrum Delta, événements, robots, stratégie, missions, Codex, narration, feedback visuel, audio et simulations de campagne.
 
-## Étape 13 — Ferrum Delta complète
+## Étape 14 — Prestige et Cryos IX
 
-Statut : **catalogue v1 complet, carte active étendue et simulations déterministes implémentés ; validation Gradle complète et Android restante**.
+Statut : **transfert planétaire, acquis permanents et boucle Cryos IX implémentés ; validation Gradle complète et Android restante**.
 
-Éléments présents :
+### Prestige et transfert
 
-- manifeste versionné `1.0.0` dans `assets/data/ferrum-delta-v1.json` ;
-- factory déterministe produisant le catalogue complet et ses identifiants stables ;
-- 14 secteurs : 1 initial, 10 standards, 2 profonds et 1 final ;
-- carte d’exploration active étendue de 6 à 14 secteurs sans changer les identifiants existants ;
-- 34 gisements, avec au moins deux sources par ressource brute ;
-- 9 ressources brutes, 9 matériaux raffinés et 24 composants ;
-- 14 technologies majeures ;
-- 24 modules : 10 standards, 8 améliorés, 4 avancés et 2 exceptionnels ;
-- 15 bâtiments et quatre familles de robots à cinq niveaux ;
-- deux spécialisations par famille, cinq traits et quatre paliers de maîtrise ;
-- 42 missions principales, 36 secondaires et 20 de maîtrise ou collection ;
-- 12 modèles de contrats et 8 exploits ;
-- 12 événements tous facultatifs ;
-- 120 entrées de Codex, dont 15 à plusieurs niveaux d’analyse ;
-- 10 collections ;
-- 5 jalons narratifs et 12 transmissions NOVA ;
-- archives actives étendues de 4 à 12 transmissions ;
-- toute ressource obligatoire possède une source garantie hors événement aléatoire ;
-- validation automatique des volumes, références et graphes acycliques ;
-- simulateur de campagne déterministe dans le module `simulation`.
+- bouton `DÉPART` depuis Ferrum Delta ;
+- chantier `sector_launch_shipyard` obligatoire ;
+- robot à au moins 6 000 points de maîtrise obligatoire ;
+- récompense de 3 Noyaux Stellaires ;
+- slot séparé `prestige` ;
+- état préparé écrit avant toute réinitialisation ;
+- totaux attendus de Noyaux, Codex, archives, bonus et vétéran enregistrés ;
+- rapprochement idempotent utilisant `max` et unions d’ensembles ;
+- réinitialisation des slots planétaires `primary`, `sectors`, `strategy`, `robots` et `meteor_event` ;
+- conservation physique et permanente des slots `progression` et `narrative` ;
+- création idempotente du slot `cryos_ix` ;
+- démarrage automatique sur l’écran de reprise si un transfert reste préparé ;
+- démarrage automatique sur Cryos IX après clôture ;
+- retour vers Ferrum désactivé après prestige ;
+- identité, numéro, niveau, trait, maîtrise et statistiques du vétéran conservés.
 
-Résultats de simulation locale :
+### Cryos IX
 
-- joueur très actif sans publicité : 22 jours ;
-- joueur très actif avec bonus maximal configuré : 18 jours ;
-- joueur régulier : 32 jours ;
-- joueur occasionnel : 50 jours ;
-- 14 secteurs atteints pour chaque profil ;
-- aucun secteur bloqué ;
-- aucune source obligatoire perdue.
+- manifeste versionné `1.0.0` dans `assets/data/cryos-ix.json` ;
+- factory déterministe `CryosIxContentFactory` ;
+- 6 secteurs ;
+- budget de 16 gisements ;
+- 4 ressources locales, dont cryonite et saumure thermique ;
+- 4 matériaux raffinés locaux ;
+- 8 recettes spécifiques ;
+- 5 technologies propres ;
+- 8 modules de l’ensemble thermique ;
+- 12 missions principales et 10 secondaires ;
+- 3 événements adaptés au froid et non punitifs ;
+- 2 découvertes narratives ;
+- 30 entrées de Codex ;
+- état persistant : énergie, chaleur, exposition au froid, réseau, stocks, secteurs, technologies, modules, missions et frontière ;
+- installation initiale de la base ;
+- génération d’énergie et chauffage séparés ;
+- extraction refusée si la chaleur du secteur est insuffisante ;
+- consommation réelle de chaleur à chaque extraction ou ouverture ;
+- cinq nœuds thermiques consommant cryonite raffinée et verre thermique ;
+- ouverture progressive des six secteurs ;
+- fabrication d’un module cryogénique ;
+- objectif final exigeant six secteurs, cinq nœuds, trois technologies et un module ;
+- déblocage de la frontière interplanétaire.
 
-Contrôles déjà effectués hors Android :
+### Contrôles effectués hors Android
 
-- compilation Kotlin du modèle, de la factory et du simulateur ;
-- chargement et validation du catalogue `1.0.0` ;
-- validation des budgets exacts ;
-- validation des dépendances acycliques des secteurs, technologies et missions ;
-- simulation des trois profils ;
-- contrôle des sources garanties ;
-- adaptation des tests qui figeaient les anciens volumes de secteurs et de transmissions.
+- compilation Kotlin du moteur de prestige ;
+- compilation Kotlin du moteur thermique Cryos IX ;
+- compilation des deux codecs ;
+- validation JSON du manifeste Cryos IX ;
+- aller-retour du transfert préparé dans le codec ;
+- rapprochement répété sans dépasser 3 Noyaux Stellaires ;
+- simulation d’une interruption avant la clôture ;
+- simulation complète de la boucle Cryos IX ;
+- six secteurs ouverts et cinq nœuds construits ;
+- douze missions principales validées ;
+- objectif final impossible sans réseau, technologies et module ;
+- aller-retour complet du slot `cryos_ix`.
 
-Validation encore nécessaire sur une machine Android équipée du SDK :
+### Validation Android restante
 
 1. générer le wrapper Gradle et synchroniser le projet ;
 2. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
 3. assembler et installer l’APK debug ;
-4. démarrer une nouvelle sauvegarde et parcourir la campagne ;
-5. tester également une sauvegarde issue du vertical slice ;
-6. vérifier les 14 secteurs et leurs prérequis sur écran tactile ;
-7. vérifier les 12 archives NOVA ;
+4. réaliser le transfert avec une sauvegarde Ferrum complète ;
+5. fermer de force à chaque phase du protocole ;
+6. vérifier les acquis permanents et le vétéran après reprise ;
+7. parcourir la boucle Cryos IX sur une nouvelle sauvegarde transférée ;
 8. tester 640 × 320 et 844 × 390 dans les deux sens paysage ;
 9. mesurer les FPS en qualité faible ;
-10. confirmer les durées réelles et l’absence de blocage permanent.
+10. confirmer l’absence de perte, duplication et blocage permanent.
