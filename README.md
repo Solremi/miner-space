@@ -4,28 +4,28 @@ Jeu Android en Kotlin basé sur LibGDX et KTX.
 
 ## État
 
-Les étapes 0 à 9 de la roadmap sont implémentées dans le code :
+Les étapes 0 à 10 de la roadmap sont implémentées dans le code :
 
-- architecture Gradle multi-module séparant Android, rendu, domaine, données et simulation ;
-- activité Android en `sensorLandscape` ;
+- architecture Gradle multi-module et activité Android en `sensorLandscape` ;
 - carte 2.5D, économie déterministe, raffinage, assemblage et technologies ;
 - snapshots alternés, migrations et progression hors ligne ;
-- six secteurs avec brouillard, scanner, coûts, missions et gisements rares ;
-- pluie de météorites avec récupération tactile, assistance et reprise idempotente ;
-- quatre familles de robots identifiables, cinq niveaux, maîtrise, traits et robot logistique ;
-- quatre spécialisations avec compromis, essai gratuit et changement contrôlé ;
-- huit modules fabriqués, améliorables, équipables et démontables ;
-- deux ensembles complets avec bonus à deux et trois pièces ;
-- comparateur stratégique limité à quatre indicateurs ;
-- aucun coffre aléatoire payant, workflow ni CI/CD.
+- secteurs avec brouillard, scanner, missions locales et ressources rares ;
+- pluie de météorites tactile, assistance et reprise idempotente ;
+- quatre familles de robots, niveaux, files, maîtrise, traits et logistique ;
+- quatre spécialisations, huit modules et deux ensembles de synergie ;
+- tutoriel reprenable en sept phases ;
+- missions principales, secondaires et exploits ;
+- trois contrats simultanés et déterministes ;
+- Codex permanent, collections et objectifs visibles ;
+- aucun workflow ni CI/CD.
 
 Les validations nécessitant Android — compilation APK, installation, interruptions système réelles, formats 640 × 320 et 844 × 390 et mesure des FPS — restent manuelles.
 
 ## Modules
 
 - `androidApp` : activité Android, cycle de vie et adaptateurs de plateforme ;
-- `game` : production, exploration, événements, flotte robotique, laboratoire stratégique, HUD et écrans de retour ;
-- `domain` : économie, production, exploration, événements, robots et stratégies ;
+- `game` : production, exploration, événements, robots, stratégie, missions et Codex ;
+- `domain` : économie, production, exploration, événements, robots, stratégies et progression ;
 - `data` : contenu JSON, migrations, codecs et snapshots alternés ;
 - `simulation` : simulation active, accélérée et hors ligne ;
 - `shared` : identifiants, résultats et journalisation ;
@@ -54,15 +54,15 @@ Aucun workflow n’est configuré. Après génération du wrapper :
 ./gradlew :androidApp:assembleDebug
 ```
 
-Pour valider l’étape 9 sur appareil :
+Pour valider l’étape 10 sur appareil :
 
-1. ouvrir `STRATÉGIE` depuis la scène principale ;
-2. comparer les quatre spécialisations avant sélection ;
-3. utiliser l’essai gratuit puis vérifier le coût et le délai du changement suivant ;
-4. fabriquer un module Forge et un module Survey avec les stocks réels ;
-5. équiper les modules sur plusieurs robots et vérifier les limites de 1, 2 puis 3 emplacements ;
-6. compléter les bonus d’ensemble à deux puis trois pièces ;
-7. améliorer un module jusqu’au niveau 3 ;
-8. démonter un module et vérifier la restitution de 70 % des matériaux ;
+1. ouvrir `MISSIONS` depuis la scène principale ;
+2. avancer dans plusieurs phases du tutoriel, fermer puis vérifier la reprise exacte ;
+3. confirmer qu’au moins trois objectifs restent actifs après l’introduction ;
+4. réclamer une mission et vérifier la récompense unique ;
+5. livrer les trois catégories de contrats et vérifier la consommation des stocks ;
+6. ouvrir le Codex et confirmer que les entrées impossibles ne sont pas marquées ;
+7. compléter puis réclamer une collection une seule fois ;
+8. fermer de force pendant une récompense puis vérifier l’absence de duplication ;
 9. contrôler 640 × 320 et 844 × 390 dans les deux sens paysage ;
-10. confirmer l’absence d’overflow, de duplication et de spécialisation dominante.
+10. confirmer l’absence d’overflow et la lisibilité des objectifs.

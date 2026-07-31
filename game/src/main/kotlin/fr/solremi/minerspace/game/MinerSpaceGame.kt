@@ -1,12 +1,7 @@
 package fr.solremi.minerspace.game
 
 import fr.solremi.minerspace.domain.services.GameServices
-import fr.solremi.minerspace.game.screen.FatalErrorScreen
-import fr.solremi.minerspace.game.screen.GameplayHubScreen
-import fr.solremi.minerspace.game.screen.MeteorShowerScreen
-import fr.solremi.minerspace.game.screen.OfflineReturnScreen
-import fr.solremi.minerspace.game.screen.RobotFleetScreen
-import fr.solremi.minerspace.game.screen.StrategyLabScreen
+import fr.solremi.minerspace.game.screen.*
 import fr.solremi.minerspace.shared.GameLogger
 import fr.solremi.minerspace.shared.SilentGameLogger
 import ktx.app.KtxGame
@@ -21,12 +16,7 @@ class MinerSpaceGame(
     override fun create() {
         try {
             logger.info(TAG, "Starting Miner Space save and offline bootstrap.")
-            addScreen(
-                OfflineReturnScreen(services) {
-                    addGameplayScreensIfNeeded()
-                    setScreen<GameplayHubScreen>()
-                },
-            )
+            addScreen(OfflineReturnScreen(services) { addGameplayScreensIfNeeded(); setScreen<GameplayHubScreen>() })
             setScreen<OfflineReturnScreen>()
         } catch (failure: Throwable) {
             logger.error(TAG, "Unable to create the initial scene.", failure)
@@ -43,11 +33,13 @@ class MinerSpaceGame(
                 onMeteorRequested = { setScreen<MeteorShowerScreen>() },
                 onRobotsRequested = { setScreen<RobotFleetScreen>() },
                 onStrategyRequested = { setScreen<StrategyLabScreen>() },
+                onMissionsRequested = { setScreen<MissionControlScreen>() },
             ),
         )
         addScreen(MeteorShowerScreen(services) { setScreen<GameplayHubScreen>() })
         addScreen(RobotFleetScreen(services) { setScreen<GameplayHubScreen>() })
         addScreen(StrategyLabScreen(services) { setScreen<GameplayHubScreen>() })
+        addScreen(MissionControlScreen(services) { setScreen<GameplayHubScreen>() })
         gameplayScreensAdded = true
     }
 
