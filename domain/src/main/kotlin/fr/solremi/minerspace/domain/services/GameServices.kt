@@ -39,8 +39,16 @@ interface HapticService {
     fun success()
     fun warning()
 }
-interface RewardedAdsService { fun isAvailable(offerId: String): Boolean; fun show(request: RewardedAdRequest, onResult: (RewardedAdResult) -> Unit) }
-interface ConsentService { fun currentState(): ConsentState; fun requestIfNeeded(onComplete: (ConsentState) -> Unit) }
+interface RewardedAdsService {
+    fun isAvailable(offerId: String): Boolean
+    fun show(request: RewardedAdRequest, onResult: (RewardedAdResult) -> Unit)
+}
+interface ConsentService {
+    fun currentState(): ConsentState
+    fun requestIfNeeded(onComplete: (ConsentState) -> Unit)
+    fun privacyOptionsRequired(): Boolean = false
+    fun showPrivacyOptions(onComplete: (ConsentState) -> Unit) = onComplete(currentState())
+}
 interface NotificationService { fun schedule(request: NotificationRequest): Boolean; fun cancel(id: String); fun cancelAll() }
 interface LifecycleService { fun currentState(): LifecycleState; fun addObserver(observer: LifecycleObserver); fun removeObserver(observer: LifecycleObserver) }
 interface AnalyticsService { fun event(name: String, attributes: Map<String, String> = emptyMap()); fun setEnabled(enabled: Boolean) }

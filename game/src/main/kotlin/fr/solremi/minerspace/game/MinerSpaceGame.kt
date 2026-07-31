@@ -57,6 +57,7 @@ class MinerSpaceGame(private val services: GameServices, private val logger: Gam
             { setScreen<NarrativeArchiveScreen>() },
             { setScreen<PresentationSettingsScreen>() },
             { setScreen<PlanetTransferScreen>() },
+            { setScreen<RewardedAdsScreen>() },
         ))
         addScreen(MeteorShowerScreen(services) { setScreen<PresentationGameplayScreen>() })
         addScreen(RobotFleetScreen(services) { setScreen<PresentationGameplayScreen>() })
@@ -64,6 +65,7 @@ class MinerSpaceGame(private val services: GameServices, private val logger: Gam
         addScreen(MissionControlScreen(services) { setScreen<PresentationGameplayScreen>() })
         addScreen(NarrativeArchiveScreen(services) { setScreen<PresentationGameplayScreen>() })
         addScreen(PresentationSettingsScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(RewardedAdsScreen(services) { setScreen<PresentationGameplayScreen>() })
         addScreen(PlanetTransferScreen(
             services,
             onFerrumBack = { setScreen<PresentationGameplayScreen>() },

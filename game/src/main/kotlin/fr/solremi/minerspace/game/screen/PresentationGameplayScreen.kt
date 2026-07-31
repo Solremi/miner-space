@@ -30,6 +30,7 @@ class PresentationGameplayScreen(
     onArchivesRequested: () -> Unit,
     private val onPresentationRequested: () -> Unit,
     private val onTransferRequested: () -> Unit,
+    private val onAdsRequested: () -> Unit,
 ) : KtxScreen {
     private val gameplay = GameplayHubScreen(
         services,
@@ -59,6 +60,10 @@ class PresentationGameplayScreen(
                 settingsButton().contains(point) -> {
                     PresentationController.play(services, SoundCue.INTERACTION, FeedbackKind.INTERACTION, x, y)
                     onPresentationRequested(); true
+                }
+                adsButton().contains(point) -> {
+                    PresentationController.play(services, SoundCue.INTERACTION, FeedbackKind.INTERACTION, x, y)
+                    onAdsRequested(); true
                 }
                 meteorButton().contains(point) -> cue(SoundCue.LAUNCH, FeedbackKind.LAUNCH, x, y)
                 archivesButton().contains(point) -> cue(SoundCue.RARITY, FeedbackKind.RARE, x, y)
@@ -94,14 +99,16 @@ class PresentationGameplayScreen(
         gameplay.render(delta)
         viewport.apply(); camera.update()
         effects.draw(camera, viewport.worldWidth, viewport.worldHeight, services.clock.monotonicMillis())
-        val transfer = transferButton(); val settings = settingsButton()
+        val transfer = transferButton(); val settings = settingsButton(); val ads = adsButton()
         shapes.projectionMatrix = camera.combined; shapes.begin(ShapeRenderer.ShapeType.Filled)
         drawButton(transfer, TRANSFER_ACCENT)
         drawButton(settings, ACCENT)
+        drawButton(ads, ADS_ACCENT)
         shapes.end()
         batch.projectionMatrix = camera.combined; batch.begin(); font.color = TEXT
         font.draw(batch, "DÉPART", transfer.x + 10f, transfer.y + 29f)
         font.draw(batch, "FX", settings.x + 15f, settings.y + 29f)
+        font.draw(batch, "ORBITAL", ads.x + 10f, ads.y + 29f)
         batch.end()
     }
 
@@ -122,6 +129,7 @@ class PresentationGameplayScreen(
     private fun archivesButton(): Rectangle { val p = missionsButton(); return Rectangle(p.x + p.width + 5f, p.y, 88f, 48f) }
     private fun settingsButton(): Rectangle { val p = safeTopRight(); return Rectangle(p.first - 48f, p.second - 48f, 48f, 48f) }
     private fun transferButton(): Rectangle { val p = settingsButton(); return Rectangle(p.x - 5f - 78f, p.y, 78f, 48f) }
+    private fun adsButton(): Rectangle { val p = settingsButton(); return Rectangle(p.x - 38f, p.y - 53f, 86f, 48f) }
 
     private fun safeTopLeft(): Pair<Float, Float> {
         val width = viewport.worldWidth; val height = viewport.worldHeight
@@ -140,6 +148,7 @@ class PresentationGameplayScreen(
         val BUTTON = Color(.075f, .17f, .25f, .94f)
         val ACCENT = Color(.94f, .48f, .16f, 1f)
         val TRANSFER_ACCENT = Color(.42f, .80f, .96f, 1f)
+        val ADS_ACCENT = Color(.32f, .88f, .68f, 1f)
         val TEXT = Color(.94f, .96f, 1f, 1f)
     }
 }

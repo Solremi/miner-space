@@ -4,6 +4,10 @@ plugins {
 
 val natives by configurations.creating
 val generatedNatives = layout.buildDirectory.dir("generated/minerSpaceNatives")
+val admobAppId = providers.gradleProperty("ADMOB_APP_ID")
+    .orElse("ca-app-pub-3940256099942544~3347511713")
+val admobRewardedUnitId = providers.gradleProperty("ADMOB_REWARDED_UNIT_ID")
+    .orElse("ca-app-pub-3940256099942544/5224354917")
 
 android {
     namespace = "fr.solremi.minerspace.android"
@@ -15,6 +19,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-alpha01"
+        manifestPlaceholders["ADMOB_APP_ID"] = admobAppId.get()
+        resValue("string", "admob_rewarded_unit_id", admobRewardedUnitId.get())
     }
 
     buildTypes {
@@ -65,6 +71,8 @@ dependencies {
     implementation(project(":shared"))
 
     implementation(libs.gdx.backend.android)
+    implementation(libs.google.mobile.ads)
+    implementation(libs.google.ump)
 
     val gdxVersion = libs.versions.gdx.get()
     natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a")

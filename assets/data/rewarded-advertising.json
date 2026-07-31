@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "1.0.0",
+  "generatedBy": "fr.solremi.minerspace.data.ads.RewardedAdvertisingContentFactory",
+  "globalDailyLimit": 10,
+  "offers": [
+    {"id":"ad_time_relay","dailyLimit":5,"cooldownMinutes":10,"reward":"-25% task, max 2h"},
+    {"id":"ad_offline_double","dailyLimit":1,"scope":"return","reward":"double standard production up to 8h"},
+    {"id":"ad_supply_capsule","dailyLimit":3,"cooldownMinutes":20,"reward":"10 production minutes"},
+    {"id":"ad_premium_contract","dailyLimit":2,"cooldownMinutes":30,"reward":"contract coefficient 1.75"},
+    {"id":"ad_analysis_beacon","dailyLimit":2,"cooldownMinutes":30,"reward":"one standard analysis"},
+    {"id":"ad_meteor_drone","dailyLimit":2,"scope":"event","reward":"recover up to 25% standard fragments"},
+    {"id":"ad_meteor_extension","dailyLimit":1,"scope":"event","reward":"15 seconds"},
+    {"id":"ad_orbital_boost","dailyLimit":2,"cooldownMinutes":60,"reward":"25% for 15 minutes"}
+  ],
+  "forbiddenDirectRewards": ["major_rare_resource", "stellar_core", "narrative_item"],
+  "transactionProtocol": ["PREPARED", "SDK_REWARDED", "COMMITTED"]
+}

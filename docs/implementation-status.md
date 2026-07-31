@@ -7,72 +7,82 @@
 - aucun workflow, aucune CI/CD et aucun déploiement automatique sans demande explicite ;
 - vérifications locales ou manuelles uniquement.
 
-## Étapes 0 à 14
+## Étapes 0 à 15
 
 Statut : **implémentées dans le code, validations Android restantes**.
 
-Présent : fondation, économie, sauvegarde hors ligne, Ferrum Delta, événements, robots, stratégie, missions, Codex, narration, présentation, prestige et boucle Cryos IX.
+Présent : économie, sauvegarde hors ligne, Ferrum Delta, robots, stratégie, missions, Codex, narration, présentation, prestige, Cryos IX et frontière interplanétaire.
 
-## Étape 15 — Frontière interplanétaire 1.0
+## Étape 16 — Publicités récompensées
 
-Statut : **génération contrôlée, validation automatique, carte stellaire et sauvegarde multi-planètes implémentées ; validation Gradle complète et Android restante**.
+Statut : **protocole idempotent, plafonds, consentement UMP, AdMob récompensé et écran orbital implémentés ; validation Gradle complète, compte AdMob et Android réels restants**.
 
-### Contenu
+### Offres et équilibrage
 
-- manifeste `assets/data/interplanetary-frontier.json` version `1.0.0` ;
-- trois familles visuelles : volcanique, cristalline et épave ;
-- huit modèles de secteurs préconstruits par famille ;
-- douze modificateurs avec familles autorisées, exclusions et capacités requises ;
-- six objectifs couvrant extraction, raffinage, réseau, événement, artefact et construction ;
-- trois difficultés : 2, 4 et 7 jours ciblés ;
-- cinq à sept secteurs par monde ;
-- récompenses permanentes, cosmétiques ou de collection.
+- huit offres pilotées par données ;
+- plafond global de dix engagements par jour ;
+- limites individuelles conformes à `docs/monetization.md` ;
+- délais de 10, 20, 30 ou 60 minutes selon l’offre ;
+- portées quotidiennes, par retour ou par événement ;
+- boost orbital limité à 25 % pendant 15 minutes et non cumulable ;
+- aucune récompense directe en Noyau Stellaire, ressource rare majeure ou objet narratif ;
+- droits publicitaires séparés de la sauvegarde économique principale ;
+- jeu normal toujours disponible sans publicité.
 
-### Garanties de génération
+### Protocole d’attribution
 
-- graine principale persistée ;
-- index de génération persistant ;
-- définition complète de chaque monde sauvegardée ;
-- chaîne linéaire de secteurs toujours réalisable ;
-- capacité de l’objectif garantie dans les secteurs sélectionnés ;
-- compatibilité famille/modificateurs vérifiée ;
-- paires de modificateurs incompatibles rejetées ;
-- aucune répétition immédiate de la même famille avec les mêmes modificateurs ;
-- trois mondes incomplets maximum ;
-- aucune mention de fin définitive du jeu.
+- identifiant de demande créé avant ouverture du SDK ;
+- état `PREPARED` sauvegardé avant l’appel AdMob ;
+- callback utilisateur enregistré en `SDK_REWARDED` ;
+- droit persistant appliqué en `COMMITTED` ;
+- demande engagée ajoutée à l’ensemble des identifiants déjà traités ;
+- second callback rejeté ;
+- reprise automatique des demandes `SDK_REWARDED` après redémarrage ;
+- annulation, indisponibilité et échec réseau sans consommation de plafond ;
+- limite consommée uniquement au commit.
 
-### Sauvegarde et reprise
+### Consentement et Android
 
-- slot séparé `frontier` ;
-- plusieurs mondes conservés simultanément ;
-- monde sélectionné et dernière signature sauvegardés ;
-- progression, actions, statut et dates conservés ;
-- récompenses permanentes, cosmétiques et de collection persistées ;
-- retour automatique sur la frontière lorsqu’un monde actif existe après fermeture.
+- Google Mobile Ads SDK et UMP ajoutés au catalogue Gradle ;
+- identifiants de test Google utilisés par défaut ;
+- identifiants de production injectables par propriétés Gradle ;
+- mise à jour UMP demandée à chaque lancement ;
+- aucune initialisation publicitaire avant `canRequestAds()` ;
+- état de consentement conservé localement ;
+- accès aux préférences de confidentialité depuis l’écran orbital ;
+- permissions Internet et état réseau ajoutées ;
+- aucune bannière ni publicité interstitielle.
+
+### Placement
+
+- bouton `ORBITAL` ajouté au hub Ferrum ;
+- une seule offre mise en avant à la fois ;
+- récompense exacte, limite et délai affichés avant lecture ;
+- bouton de retour aussi accessible que le bouton de lecture ;
+- offres retour/événement refusées hors de leur contexte ;
+- moteur bloquant explicitement les placements pendant tutoriel, narration et grande animation.
 
 ### Contrôles effectués hors Android
 
-- compilation Kotlin du modèle, du générateur, du moteur et du codec ;
-- compilation syntaxique des nouveaux écrans et de la navigation avec API simulées ;
-- validation JSON du manifeste ;
-- génération locale de 10 000 mondes ;
-- zéro combinaison impossible ;
-- zéro chaîne cassée ;
-- zéro répétition immédiate ;
-- test des trois difficultés ;
-- limite de trois mondes actifs ;
-- stabilisation d’un monde et attribution unique de sa récompense ;
-- aller-retour exact d’une sauvegarde multi-planètes.
+- compilation Kotlin du modèle et du moteur publicitaire ;
+- simulation de dix engagements et rejet du onzième ;
+- callback dupliqué rejeté ;
+- annulation sans consommation de quota ;
+- récupération d’une transaction `SDK_REWARDED` ;
+- boost non cumulable et plafonné ;
+- codec couvrant demandes en attente, portées, plafonds et droits ;
+- validation des huit offres et des récompenses interdites ;
+- correction des erreurs de compilation trouvées avant publication.
 
 ### Validation Android restante
 
-1. générer le wrapper Gradle et synchroniser le projet ;
-2. exécuter `:domain:test`, `:data:test` et `:simulation:test` ;
+1. synchroniser les dépendances Google ;
+2. exécuter les tests Gradle ;
 3. assembler et installer l’APK debug ;
-4. ouvrir la frontière depuis une sauvegarde Cryos IX terminée ;
-5. interrompre et reprendre plusieurs mondes ;
-6. vérifier les récompenses et archives ;
-7. tester 640 × 320 et 844 × 390 dans les deux sens paysage ;
-8. mesurer les FPS en qualité faible ;
-9. vérifier l’absence d’overflow et de chargement perceptible ;
-10. confirmer l’absence de combinaison impossible sur appareil.
+4. tester les annonces de test sur appareil ;
+5. configurer les messages UMP dans AdMob ;
+6. tester EEE, refus, consentement et réouverture des préférences ;
+7. tester hors connexion et interruption à chaque phase ;
+8. valider les portées retour et événement dans leurs écrans dédiés ;
+9. vérifier les formats paysage cibles ;
+10. remplacer les identifiants de test avant publication.

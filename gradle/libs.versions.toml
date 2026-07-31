@@ -4,6 +4,8 @@ kotlin = "2.3.21"
 gdx = "1.14.2"
 ktx = "1.13.1-rc1"
 junit = "5.13.4"
+googleMobileAds = "25.4.0"
+googleUmp = "4.0.0"
 
 [libraries]
 gdx-core = { module = "com.badlogicgames.gdx:gdx", version.ref = "gdx" }
@@ -12,6 +14,8 @@ ktx-app = { module = "io.github.libktx:ktx-app", version.ref = "ktx" }
 ktx-graphics = { module = "io.github.libktx:ktx-graphics", version.ref = "ktx" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+google-mobile-ads = { module = "com.google.android.gms:play-services-ads", version.ref = "googleMobileAds" }
+google-ump = { module = "com.google.android.ump:user-messaging-platform", version.ref = "googleUmp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

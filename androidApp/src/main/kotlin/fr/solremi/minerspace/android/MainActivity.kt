@@ -13,7 +13,7 @@ class MainActivity : AndroidApplication() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        platformServices = AndroidPlatformServices(applicationContext)
+        platformServices = AndroidPlatformServices(this)
         val configuration = AndroidApplicationConfiguration().apply {
             useImmersiveMode = true
             useWakelock = false
@@ -28,6 +28,7 @@ class MainActivity : AndroidApplication() {
             ),
             configuration,
         )
+        platformServices.requestConsentAtLaunch()
     }
 
     override fun onResume() {

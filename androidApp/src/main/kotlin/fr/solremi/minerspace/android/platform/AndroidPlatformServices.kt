@@ -1,6 +1,6 @@
 package fr.solremi.minerspace.android.platform
 
-import android.content.Context
+import android.app.Activity
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.SystemClock
@@ -13,26 +13,34 @@ import fr.solremi.minerspace.domain.services.*
 import fr.solremi.minerspace.game.presentation.GameFeedbackBus
 import fr.solremi.minerspace.shared.GameLogger
 import java.util.concurrent.CopyOnWriteArraySet
+import java.util.concurrent.atomic.AtomicBoolean
 
-class AndroidPlatformServices(private val context: Context) {
+class AndroidPlatformServices(private val activity: Activity) {
     private val lifecycle = AndroidLifecycleService()
     private val audio = AndroidAudioService()
-    private val haptic = AndroidHapticService(context, audio)
+    private val haptic = AndroidHapticService(activity, audio)
+    private val adPermission = AtomicBoolean(false)
+    private val rewardedAds = AndroidRewardedAdsService(activity) { adPermission.get() }
+    private val consent = AndroidConsentService(activity) { allowed ->
+        adPermission.set(allowed)
+        rewardedAds.setConsentAvailable(allowed)
+    }
 
     val services = GameServices(
         clock = AndroidClockService,
-        save = FileSaveService(context.filesDir.resolve("saves").toPath()),
+        save = FileSaveService(activity.filesDir.resolve("saves").toPath()),
         audio = audio,
         haptic = haptic,
-        rewardedAds = UnavailableRewardedAdsService,
-        consent = PendingConsentService,
+        rewardedAds = rewardedAds,
+        consent = consent,
         notifications = DisabledNotificationService,
         lifecycle = lifecycle,
         analytics = DisabledAnalyticsService,
-        content = AndroidAssetContentRepository(context),
+        content = AndroidAssetContentRepository(activity),
         remoteConfig = LocalRemoteConfigService,
     )
 
+    fun requestConsentAtLaunch() { consent.requestIfNeeded { } }
     fun onForeground() { lifecycle.update(LifecycleState.FOREGROUND); services.audio.resume() }
     fun onBackground() { services.audio.pause(); lifecycle.update(LifecycleState.BACKGROUND) }
 }
@@ -89,8 +97,8 @@ private class AndroidAudioService : AudioService {
     ).also { generator = it }
 }
 
-private class AndroidHapticService(context: Context, private val audio: AudioService) : HapticService {
-    private val vibrator = context.getSystemService(Vibrator::class.java)
+private class AndroidHapticService(activity: Activity, private val audio: AudioService) : HapticService {
+    private val vibrator = activity.getSystemService(Vibrator::class.java)
     private var enabled = true
     override fun setEnabled(enabled: Boolean) { this.enabled = enabled }
 
@@ -131,20 +139,12 @@ private class AndroidLifecycleService : LifecycleService {
     }
 }
 
-private class AndroidAssetContentRepository(private val context: Context) : ContentRepository {
+private class AndroidAssetContentRepository(private val activity: Activity) : ContentRepository {
     override fun readText(path: String): String? = runCatching {
-        context.assets.open(path).bufferedReader().use { it.readText() }
+        activity.assets.open(path).bufferedReader().use { it.readText() }
     }.getOrNull()
 }
 
-private object UnavailableRewardedAdsService : RewardedAdsService {
-    override fun isAvailable(offerId: String): Boolean = false
-    override fun show(request: RewardedAdRequest, onResult: (RewardedAdResult) -> Unit) { onResult(RewardedAdResult.Unavailable) }
-}
-private object PendingConsentService : ConsentService {
-    override fun currentState(): ConsentState = ConsentState.UNKNOWN
-    override fun requestIfNeeded(onComplete: (ConsentState) -> Unit) { onComplete(ConsentState.UNKNOWN) }
-}
 private object DisabledNotificationService : NotificationService {
     override fun schedule(request: NotificationRequest): Boolean = false
     override fun cancel(id: String) = Unit
