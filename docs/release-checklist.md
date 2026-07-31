@@ -1,197 +1,71 @@
 # Miner Space — Checklist de publication 1.0
 
-## 1. Identité et build
+Légende : `[x]` contrôlé dans le dépôt ; `[ ]` validation externe ou sur appareil obligatoire. La publication reste **NO-GO** tant qu’une case obligatoire demeure ouverte.
 
-- identifiant d’application définitif ;
-- nom public définitif ;
-- icône adaptative ;
-- écran de lancement ;
-- versionCode et versionName validés ;
-- clé de signature sauvegardée hors du dépôt ;
-- configuration debug séparée de release ;
-- identifiants publicitaires de test absents du build release ;
-- logs de debug et menus développeur désactivés ;
-- minification et ressources validées sans casser la sérialisation.
+## Identité et build
 
-## 2. Gameplay
+- [x] identifiant `fr.solremi.minerspace`, nom Miner Space, versionCode 100 et versionName 1.0.0 ;
+- [x] icône adaptative Android et écran de lancement ;
+- [x] debug et release séparés ; R8 et suppression des ressources activés en release ;
+- [x] build release bloqué si signature, identifiants AdMob, URL HTTPS ou contact manquent ;
+- [x] secrets attendus hors Git ;
+- [ ] clé de signature réelle créée, sauvegardée et testée ;
+- [ ] bundle signé installé et mapping R8 archivé ;
+- [ ] icône Play Store 512 × 512, captures et image de présentation exportées.
 
-- Ferrum Delta complète depuis une nouvelle sauvegarde ;
-- Cryos IX accessible et jouable ;
-- prestige sans perte de données ;
-- frontière interplanétaire fonctionnelle ;
-- aucune mission bloquante ;
-- aucune ressource obligatoire sans source garantie ;
-- aucune spécialisation dominante sur toutes les métriques ;
-- aucune publicité nécessaire ;
-- pluie de météorites facultative et stable ;
-- progression hors ligne conforme.
+## Gameplay et sauvegarde
 
-## 3. Paysage et appareils
+- [x] Ferrum Delta, prestige, Cryos IX et frontière présents ;
+- [x] sources garanties et génération de frontière testées ;
+- [x] jeu normal indépendant des publicités ;
+- [x] snapshots alternés, checksum, restauration de repli et migration `presentation` 1 → 2 ;
+- [x] transactions prestige, frontière et publicité reprenables ;
+- [ ] campagne et transfert terminés sur une nouvelle sauvegarde réelle ;
+- [ ] migration par-dessus chaque version de test conservée ;
+- [ ] offres retour hors ligne et météorites raccordées et validées dans leur écran dédié ;
+- [ ] aucune mission bloquante ou stratégie dominante confirmée par test fermé.
 
-Tests réels :
+## Paysage et accessibilité
 
-- 640 × 320 ;
-- 844 × 390 ;
-- appareil 720p ;
-- appareil 1080p ;
-- tablette ;
-- appareil avec encoche ;
-- paysage gauche et droit ;
-- retour après rotation ;
-- boutons système en navigation gestuelle et trois boutons.
+- [x] nouveaux écrans avec insets sûrs et cibles principales de 48 unités ;
+- [x] texte 100 %, 115 % et 130 % ;
+- [x] contraste élevé ;
+- [x] défaut, deutéranopie, protanopie, tritanopie et monochrome ;
+- [x] réduction des animations et des flashes ;
+- [x] vibration et son désactivables ;
+- [ ] 640 × 320, 844 × 390, 720p, 1080p, tablette et encoche ;
+- [ ] paysage gauche et droit, navigation gestuelle et trois boutons ;
+- [ ] texte 130 % sans overflow sur tous les écrans ;
+- [ ] 30 FPS stable en qualité faible.
 
-Conditions :
+## Réseau, publicité et confidentialité
 
-- aucun overflow ;
-- aucun bouton inaccessible ;
-- aucune zone importante sous un inset ;
-- texte 130 % utilisable ;
-- 30 FPS stable en qualité faible sur appareil faible cible.
+- [x] trafic HTTP en clair interdit ; sauvegardes Android et transfert d’appareil désactivés ;
+- [x] UMP demandé avant initialisation AdMob ;
+- [x] récompenses idempotentes et échecs non bloquants ;
+- [x] politique et crédits consultables hors connexion ;
+- [x] préférences publicitaires accessibles ;
+- [ ] URL HTTPS de politique publiée ;
+- [ ] adresse de contact réelle renseignée ;
+- [ ] UMP testé accordé, refusé et non requis ;
+- [ ] formulaire Sécurité des données validé dans Play Console.
 
-## 4. Sauvegarde et mise à jour
+## Performance et stabilité
 
-- reprise après fermeture forcée ;
-- reprise après redémarrage téléphone ;
-- snapshot corrompu restauré ;
-- migration depuis toutes les versions de test supportées ;
-- mise à jour par-dessus une version précédente ;
-- aucune duplication de publicité ;
-- aucune duplication de météorite ;
-- prestige interrompu et repris ;
-- changement d’heure plafonné ;
-- absence de 24 heures simulée.
+- [x] budgets LOW/MEDIUM/HIGH et réduction des effets ;
+- [x] journal de panne local sans envoi automatique ;
+- [ ] démarrage à froid et session de 30 minutes mesurés ;
+- [ ] 100 gisements, 50 robots, pluie maximale et tâches simultanées testés ;
+- [ ] aucun crash bloquant, ANR ou gel confirmé par test fermé.
 
-## 5. Réseau et publicité
+## Google Play et déploiement
 
-- jeu lancé hors connexion ;
-- offre publicitaire indisponible non bloquante ;
-- UMP testé avec consentement accordé, refusé et non requis ;
-- récompense attribuée une fois ;
-- plafonds quotidiens ;
-- publicité interrompue ;
-- politique de confidentialité accessible ;
-- préférences publicitaires accessibles ;
-- aucune publicité pendant tutoriel, narration ou décollage.
+- [x] brouillons de fiche, Sécurité des données, plan de captures, test fermé et retour arrière ;
+- [ ] classification, public cible, publicité, pays et coordonnées complétés ;
+- [ ] test interne et test fermé terminés ;
+- [ ] retours testeurs traités ;
+- [ ] publication progressive configurée.
 
-## 6. Accessibilité
+## Go / No-Go
 
-- taille de texte ;
-- contraste élevé ;
-- daltonisme ;
-- réduction des animations ;
-- réduction des flashs ;
-- vibrations désactivables ;
-- jeu compréhensible sans son ;
-- météorites en mode assistance ;
-- confirmations des actions irréversibles ;
-- icônes et formes en complément des couleurs.
-
-## 7. Audio
-
-Minimum version 1.0 :
-
-- interaction principale ;
-- validation ;
-- erreur ;
-- production terminée ;
-- découverte rare ;
-- ouverture de secteur ;
-- pluie de météorites ;
-- décollage ;
-- ambiance minimale de base.
-
-- volumes séparés ;
-- mute complet ;
-- aucune coupure brutale au passage arrière-plan ;
-- aucune ressource audio manquante.
-
-## 8. Performance et stabilité
-
-- démarrage à froid testé ;
-- mémoire sur session de 30 minutes ;
-- 100 gisements ;
-- 50 robots ou drones selon qualité ;
-- pluie maximale ;
-- changement rapide de panneaux ;
-- plusieurs tâches terminées simultanément ;
-- sauvegarde multi-planètes ;
-- aucun crash bloquant ;
-- aucun ANR connu ;
-- aucun freeze de plusieurs secondes ;
-- journal des erreurs exploitable.
-
-## 9. Google Play
-
-- fiche courte et longue ;
-- captures paysage ;
-- image de présentation ;
-- icône haute résolution ;
-- catégorie et tags ;
-- classification du contenu ;
-- public cible ;
-- déclaration des publicités ;
-- formulaire de sécurité des données ;
-- URL de politique de confidentialité ;
-- coordonnées de contact ;
-- pays de distribution ;
-- test interne ;
-- test fermé ;
-- retour des testeurs traité ;
-- publication progressive configurée.
-
-## 10. Données et juridique
-
-- données envoyées par AdMob documentées ;
-- aucune donnée personnelle dans les logs de gameplay ;
-- consentement conforme à la zone ;
-- licences des bibliothèques et assets listées ;
-- crédits accessibles ;
-- procédure de demande de suppression des données si un compte est ajouté ultérieurement ;
-- sauvegarde locale expliquée dans la politique.
-
-## 11. Observabilité
-
-Avant publication :
-
-- événements critiques testés ;
-- crash reporting configuré uniquement après décision de confidentialité ;
-- métriques de tutoriel ;
-- première extraction ;
-- premier robot ;
-- premier secteur ;
-- jour de progression ;
-- blocage de mission ;
-- prestige ;
-- publicité proposée et récompensée ;
-- désactivation possible des outils non indispensables.
-
-## 12. Déploiement
-
-1. test interne ;
-2. test fermé limité ;
-3. correction des blocages ;
-4. publication à faible pourcentage ;
-5. surveillance des crashs, ANR et avis ;
-6. augmentation progressive ;
-7. arrêt du déploiement si anomalie critique.
-
-## 13. Retour arrière
-
-- conserver le dernier bundle stable ;
-- ne jamais publier une migration destructrice sans copie ;
-- documenter les changements de schéma ;
-- préparer une correction compatible avec les sauvegardes déjà migrées ;
-- ne pas dépendre d’un retour automatique à une version Android antérieure.
-
-## 14. Go / No-Go
-
-La publication est autorisée uniquement si :
-
-- aucune anomalie critique ouverte ;
-- aucune perte de sauvegarde reproduite ;
-- gameplay paysage validé sur les formats de référence ;
-- Ferrum Delta et transfert vers Cryos IX terminables ;
-- monétisation facultative et conforme ;
-- politique de confidentialité publiée ;
-- tests fermés validés ;
-- plan de correctif et retour arrière documenté.
+La version reste **NO-GO** jusqu’au bundle signé, à la politique HTTPS, aux tests appareil, aux migrations réelles, au test fermé, au raccordement des offres contextuelles, aux captures et aux formulaires Play Console.

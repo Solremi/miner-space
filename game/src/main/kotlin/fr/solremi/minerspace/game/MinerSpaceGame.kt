@@ -64,7 +64,12 @@ class MinerSpaceGame(private val services: GameServices, private val logger: Gam
         addScreen(StrategyLabScreen(services) { setScreen<PresentationGameplayScreen>() })
         addScreen(MissionControlScreen(services) { setScreen<PresentationGameplayScreen>() })
         addScreen(NarrativeArchiveScreen(services) { setScreen<PresentationGameplayScreen>() })
-        addScreen(PresentationSettingsScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(PresentationSettingsScreen(
+            services,
+            onLegalRequested = { setScreen<LegalInformationScreen>() },
+            onBack = { setScreen<PresentationGameplayScreen>() },
+        ))
+        addScreen(LegalInformationScreen(services) { setScreen<PresentationSettingsScreen>() })
         addScreen(RewardedAdsScreen(services) { setScreen<PresentationGameplayScreen>() })
         addScreen(PlanetTransferScreen(
             services,

@@ -4,10 +4,25 @@ plugins {
 
 val natives by configurations.creating
 val generatedNatives = layout.buildDirectory.dir("generated/minerSpaceNatives")
-val admobAppId = providers.gradleProperty("ADMOB_APP_ID")
-    .orElse("ca-app-pub-3940256099942544~3347511713")
-val admobRewardedUnitId = providers.gradleProperty("ADMOB_REWARDED_UNIT_ID")
-    .orElse("ca-app-pub-3940256099942544/5224354917")
+
+fun releaseValue(name: String) = providers.gradleProperty(name).orElse(providers.environmentVariable(name))
+
+val testAdmobAppId = "ca-app-pub-3940256099942544~3347511713"
+val testAdmobRewardedUnitId = "ca-app-pub-3940256099942544/5224354917"
+val admobAppId = releaseValue("ADMOB_APP_ID")
+val admobRewardedUnitId = releaseValue("ADMOB_REWARDED_UNIT_ID")
+val privacyPolicyUrl = releaseValue("PRIVACY_POLICY_URL")
+val supportEmail = releaseValue("SUPPORT_EMAIL")
+val releaseStoreFile = releaseValue("RELEASE_STORE_FILE")
+val releaseStorePassword = releaseValue("RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = releaseValue("RELEASE_KEY_ALIAS")
+val releaseKeyPassword = releaseValue("RELEASE_KEY_PASSWORD")
+val releaseSigningConfigured = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { it.isPresent }
 
 android {
     namespace = "fr.solremi.minerspace.android"
@@ -17,10 +32,23 @@ android {
         applicationId = "fr.solremi.minerspace"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-alpha01"
-        manifestPlaceholders["ADMOB_APP_ID"] = admobAppId.get()
-        resValue("string", "admob_rewarded_unit_id", admobRewardedUnitId.get())
+        versionCode = 100
+        versionName = "1.0.0"
+        manifestPlaceholders["ADMOB_APP_ID"] = testAdmobAppId
+        resValue("string", "admob_rewarded_unit_id", testAdmobRewardedUnitId)
+        resValue("string", "privacy_policy_url", "local://legal/privacy-policy-fr.md")
+        resValue("string", "support_email", "contact-via-google-play")
+    }
+
+    signingConfigs {
+        create("release") {
+            if (releaseSigningConfigured) {
+                storeFile = file(releaseStoreFile.get())
+                storePassword = releaseStorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
     }
 
     buildTypes {
@@ -32,7 +60,13 @@ android {
         }
         release {
             isDebuggable = false
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (releaseSigningConfigured) signingConfig = signingConfigs.getByName("release")
+            manifestPlaceholders["ADMOB_APP_ID"] = admobAppId.orElse("").get()
+            resValue("string", "admob_rewarded_unit_id", admobRewardedUnitId.orElse("").get())
+            resValue("string", "privacy_policy_url", privacyPolicyUrl.orElse("").get())
+            resValue("string", "support_email", supportEmail.orElse("").get())
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -52,6 +86,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     packaging {
         resources.excludes += setOf(
             "META-INF/DEPENDENCIES",
@@ -62,7 +100,6 @@ android {
         )
     }
 }
-
 
 dependencies {
     implementation(project(":game"))
@@ -78,6 +115,22 @@ dependencies {
     natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a")
     natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a")
     natives("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64")
+}
+
+val validateReleaseConfiguration by tasks.registering {
+    group = "verification"
+    description = "Rejects unsafe or incomplete Miner Space release configuration."
+    doLast {
+        val errors = mutableListOf<String>()
+        if (!releaseSigningConfigured) errors += "Release signing properties are incomplete."
+        if (!admobAppId.isPresent || admobAppId.get() == testAdmobAppId) errors += "A production ADMOB_APP_ID is required."
+        if (!admobRewardedUnitId.isPresent || admobRewardedUnitId.get() == testAdmobRewardedUnitId) errors += "A production ADMOB_REWARDED_UNIT_ID is required."
+        if (!privacyPolicyUrl.isPresent || !privacyPolicyUrl.get().startsWith("https://")) errors += "PRIVACY_POLICY_URL must be a published HTTPS URL."
+        if (!supportEmail.isPresent || !supportEmail.get().contains('@')) errors += "SUPPORT_EMAIL must be configured."
+        if ((android.defaultConfig.versionCode ?: 0) < 100) errors += "versionCode must be at least 100 for 1.0."
+        if (android.defaultConfig.versionName != "1.0.0") errors += "versionName must be 1.0.0."
+        check(errors.isEmpty()) { errors.joinToString(separator = "\n") }
+    }
 }
 
 val extractAndroidNatives by tasks.registering {
@@ -103,9 +156,8 @@ val extractAndroidNatives by tasks.registering {
 }
 
 tasks.configureEach {
-    if (name.contains("merge", ignoreCase = true) &&
-        name.contains("JniLibFolders", ignoreCase = true)
-    ) {
+    if (name.contains("merge", ignoreCase = true) && name.contains("JniLibFolders", ignoreCase = true)) {
         dependsOn(extractAndroidNatives)
     }
+    if (name == "preReleaseBuild") dependsOn(validateReleaseConfiguration)
 }

@@ -8,6 +8,8 @@
         <item name="android:navigationBarColor">@color/miner_space_background</item>
         <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowSplashScreenBackground">@color/miner_space_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:postSplashScreenTheme">@style/Theme.MinerSpace</item>
     </style>
 </resources>

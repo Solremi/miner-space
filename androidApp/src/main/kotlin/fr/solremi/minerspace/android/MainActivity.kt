@@ -6,6 +6,7 @@ import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import fr.solremi.minerspace.android.platform.AndroidGameLogger
 import fr.solremi.minerspace.android.platform.AndroidPlatformServices
+import fr.solremi.minerspace.android.platform.LocalCrashReporter
 import fr.solremi.minerspace.game.MinerSpaceGame
 
 class MainActivity : AndroidApplication() {
@@ -13,6 +14,7 @@ class MainActivity : AndroidApplication() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LocalCrashReporter.install(applicationContext)
         platformServices = AndroidPlatformServices(this)
         val configuration = AndroidApplicationConfiguration().apply {
             useImmersiveMode = true

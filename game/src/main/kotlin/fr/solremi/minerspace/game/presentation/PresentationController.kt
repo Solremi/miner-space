@@ -15,11 +15,13 @@ object PresentationController {
         private set
 
     fun loadAndApply(services: GameServices): PresentationSettings {
-        val loaded = services.save.loadLatest(PresentationSettingsCodec.SLOT_ID)?.let { payload ->
-            runCatching { codec.decode(payload) }.getOrNull()
-        } ?: PresentationSettings()
+        val payload = services.save.loadLatest(PresentationSettingsCodec.SLOT_ID)
+        val loaded = payload?.let { runCatching { codec.decode(it) }.getOrNull() } ?: PresentationSettings()
         current = engine.normalize(loaded)
         applyToServices(services)
+        if (payload != null && payload.schemaVersion != PresentationSettingsCodec.FORMAT_VERSION) {
+            services.save.save(codec.encode(current, services.clock.nowEpochMillis().coerceAtLeast(0L)))
+        }
         return current
     }
 
