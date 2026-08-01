@@ -1,10 +1,10 @@
 # Miner Space — Consolidation technique
 
-## Les dix priorités sont traitées
+## Priorités traitées
 
 1. **Production extraite de l’écran** — `ManufacturingCoordinator` possède les moteurs, l’état, la simulation et la persistance.
 2. **Rollback réel** — une action de production n’est publiée en mémoire qu’après sauvegarde réussie.
-3. **Transactions multi-slots** — transfert planétaire, secteurs, météorites et consommation publicitaire sont reprenables et idempotents.
+3. **Transactions multi-slots** — transfert planétaire, secteurs, météorites, robots, stratégie, missions et consommation publicitaire sont reprenables et idempotents.
 4. **Textes centralisés** — catalogue typé français, paramètres contrôlés et mappings de messages gameplay.
 5. **Codecs mutualisés** — lecteur, writer et collections versionnés communs, sans casser les formats existants.
 6. **Tests interface et Android** — layouts paysage compacts, zones sûres, manifeste, orientation, sauvegarde système et trafic clair.
@@ -12,6 +12,7 @@
 8. **Performance et futurs assets** — registre à références comptées, groupes de durée de vie, budgets qualité et moniteur de frames.
 9. **Diagnostics locaux** — tampon borné, empreintes privées et contexte technique intégré au rapport de crash local.
 10. **Validation release** — contrôle du dépôt, modèle privé de preuves et décision Go/No-Go reproductible.
+11. **Transactions avancées** — améliorations de robots, transferts logistiques, spécialisations, modules, missions, contrats et collections sont engagés via le journal multi-slots.
 
 ## Commandes locales
 
