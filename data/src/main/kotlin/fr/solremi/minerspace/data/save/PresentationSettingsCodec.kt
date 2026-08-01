@@ -12,24 +12,24 @@ class PresentationSettingsCodec {
         slotId: String = SLOT_ID,
     ): SavePayload {
         require(savedAtEpochMillis >= 0L)
-        val text = buildString {
-            appendLine("format=$FORMAT_VERSION")
-            appendLine("quality=${settings.quality.name}")
-            appendLine("effectsEnabled=${settings.effectsEnabled}")
-            appendLine("reducedMotion=${settings.reducedMotion}")
-            appendLine("reducedFlashes=${settings.reducedFlashes}")
-            appendLine("highContrast=${settings.highContrast}")
-            appendLine("colorVisionMode=${settings.colorVisionMode.name}")
-            appendLine("textScalePercent=${settings.textScalePercent}")
-            appendLine("vibrationEnabled=${settings.vibrationEnabled}")
-            appendLine("soundEnabled=${settings.soundEnabled}")
-            appendLine("masterVolumePercent=${settings.masterVolumePercent}")
-        }
+        val bytes = VersionedFieldWriter()
+            .put("format", FORMAT_VERSION)
+            .put("quality", settings.quality.name)
+            .put("effectsEnabled", settings.effectsEnabled)
+            .put("reducedMotion", settings.reducedMotion)
+            .put("reducedFlashes", settings.reducedFlashes)
+            .put("highContrast", settings.highContrast)
+            .put("colorVisionMode", settings.colorVisionMode.name)
+            .put("textScalePercent", settings.textScalePercent)
+            .put("vibrationEnabled", settings.vibrationEnabled)
+            .put("soundEnabled", settings.soundEnabled)
+            .put("masterVolumePercent", settings.masterVolumePercent)
+            .encode()
         return SavePayload(
             slotId = slotId,
             schemaVersion = FORMAT_VERSION,
             contentVersion = CONTENT_VERSION,
-            bytes = text.toByteArray(Charsets.UTF_8),
+            bytes = bytes,
             savedAtEpochMillis = savedAtEpochMillis,
         )
     }
@@ -37,15 +37,8 @@ class PresentationSettingsCodec {
     fun decode(payload: SavePayload): PresentationSettings {
         require(payload.slotId == SLOT_ID)
         require(payload.schemaVersion in SUPPORTED_FORMATS)
-        val fields = payload.bytes.toString(Charsets.UTF_8)
-            .lineSequence()
-            .filter { it.isNotBlank() }
-            .associate { line ->
-                val separator = line.indexOf('=')
-                require(separator > 0) { "Invalid presentation snapshot line" }
-                line.substring(0, separator) to line.substring(separator + 1)
-            }
-        val format = fields.getValue("format").toInt()
+        val fields = VersionedFieldReader.decode(payload.bytes, "presentation snapshot")
+        val format = fields.int("format")
         require(format in SUPPORTED_FORMATS)
         return when (format) {
             1 -> decodeV1(fields)
@@ -54,27 +47,53 @@ class PresentationSettingsCodec {
         }
     }
 
-    private fun decodeV1(fields: Map<String, String>) = PresentationSettings(
-        quality = VisualQuality.valueOf(fields.getValue("quality")),
-        effectsEnabled = fields.getValue("effectsEnabled").toBooleanStrict(),
-        reducedMotion = fields.getValue("reducedMotion").toBooleanStrict(),
-        vibrationEnabled = fields.getValue("vibrationEnabled").toBooleanStrict(),
-        soundEnabled = fields.getValue("soundEnabled").toBooleanStrict(),
-        masterVolumePercent = fields.getValue("masterVolumePercent").toInt(),
-    )
+    private fun decodeV1(fields: VersionedFieldReader): PresentationSettings {
+        fields.requireOnly(
+            "format",
+            "quality",
+            "effectsEnabled",
+            "reducedMotion",
+            "vibrationEnabled",
+            "soundEnabled",
+            "masterVolumePercent",
+        )
+        return PresentationSettings(
+            quality = fields.enum<VisualQuality>("quality"),
+            effectsEnabled = fields.boolean("effectsEnabled"),
+            reducedMotion = fields.boolean("reducedMotion"),
+            vibrationEnabled = fields.boolean("vibrationEnabled"),
+            soundEnabled = fields.boolean("soundEnabled"),
+            masterVolumePercent = fields.int("masterVolumePercent"),
+        )
+    }
 
-    private fun decodeV2(fields: Map<String, String>) = PresentationSettings(
-        quality = VisualQuality.valueOf(fields.getValue("quality")),
-        effectsEnabled = fields.getValue("effectsEnabled").toBooleanStrict(),
-        reducedMotion = fields.getValue("reducedMotion").toBooleanStrict(),
-        reducedFlashes = fields.getValue("reducedFlashes").toBooleanStrict(),
-        highContrast = fields.getValue("highContrast").toBooleanStrict(),
-        colorVisionMode = ColorVisionMode.valueOf(fields.getValue("colorVisionMode")),
-        textScalePercent = fields.getValue("textScalePercent").toInt(),
-        vibrationEnabled = fields.getValue("vibrationEnabled").toBooleanStrict(),
-        soundEnabled = fields.getValue("soundEnabled").toBooleanStrict(),
-        masterVolumePercent = fields.getValue("masterVolumePercent").toInt(),
-    )
+    private fun decodeV2(fields: VersionedFieldReader): PresentationSettings {
+        fields.requireOnly(
+            "format",
+            "quality",
+            "effectsEnabled",
+            "reducedMotion",
+            "reducedFlashes",
+            "highContrast",
+            "colorVisionMode",
+            "textScalePercent",
+            "vibrationEnabled",
+            "soundEnabled",
+            "masterVolumePercent",
+        )
+        return PresentationSettings(
+            quality = fields.enum<VisualQuality>("quality"),
+            effectsEnabled = fields.boolean("effectsEnabled"),
+            reducedMotion = fields.boolean("reducedMotion"),
+            reducedFlashes = fields.boolean("reducedFlashes"),
+            highContrast = fields.boolean("highContrast"),
+            colorVisionMode = fields.enum<ColorVisionMode>("colorVisionMode"),
+            textScalePercent = fields.int("textScalePercent"),
+            vibrationEnabled = fields.boolean("vibrationEnabled"),
+            soundEnabled = fields.boolean("soundEnabled"),
+            masterVolumePercent = fields.int("masterVolumePercent"),
+        )
+    }
 
     companion object {
         const val SLOT_ID = "presentation"

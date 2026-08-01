@@ -10,22 +10,24 @@ class SectorProgressCodec {
         contentVersion: String,
         savedAtEpochMillis: Long = System.currentTimeMillis().coerceAtLeast(0L),
     ): SavePayload {
-        val text = buildString {
-            appendLine("format=$FORMAT_VERSION")
-            appendLine("contentVersion=$contentVersion")
-            appendLine("revealed=${encodeIds(state.revealedSectorIds)}")
-            appendLine("unlocked=${encodeIds(state.unlockedSectorIds)}")
-            appendLine("rareDeposits=${encodeIds(state.discoveredRareDepositIds)}")
-            appendLine("spentSpaceDollars=${state.spentSpaceDollars}")
-            appendLine("spentComponents=${encodeMap(state.spentComponents)}")
-            appendLine("activeMission=${state.activeMissionSectorId?.value.orEmpty()}")
-            appendLine("transactionSequence=${state.transactionSequence}")
-        }
+        require(contentVersion.isNotBlank())
+        require(savedAtEpochMillis >= 0L)
+        val bytes = VersionedFieldWriter()
+            .put("format", FORMAT_VERSION)
+            .put("contentVersion", contentVersion)
+            .put("revealed", SaveFieldCollections.encodeIds(state.revealedSectorIds))
+            .put("unlocked", SaveFieldCollections.encodeIds(state.unlockedSectorIds))
+            .put("rareDeposits", SaveFieldCollections.encodeIds(state.discoveredRareDepositIds))
+            .put("spentSpaceDollars", state.spentSpaceDollars)
+            .put("spentComponents", SaveFieldCollections.encodeQuantities(state.spentComponents))
+            .put("activeMission", state.activeMissionSectorId?.value)
+            .put("transactionSequence", state.transactionSequence)
+            .encode()
         return SavePayload(
             slotId = SLOT_ID,
             schemaVersion = FORMAT_VERSION,
             contentVersion = contentVersion,
-            bytes = text.toByteArray(Charsets.UTF_8),
+            bytes = bytes,
             savedAtEpochMillis = savedAtEpochMillis,
         )
     }
@@ -33,31 +35,31 @@ class SectorProgressCodec {
     fun decode(payload: SavePayload): ExplorationState {
         require(payload.slotId == SLOT_ID)
         require(payload.schemaVersion == FORMAT_VERSION)
-        val fields = payload.bytes.toString(Charsets.UTF_8).lineSequence()
-            .filter { it.isNotBlank() }
-            .associate { line ->
-                val separator = line.indexOf('=')
-                require(separator > 0)
-                line.substring(0, separator) to line.substring(separator + 1)
-            }
-        require(fields.getValue("format").toInt() == FORMAT_VERSION)
-        require(fields.getValue("contentVersion") == payload.contentVersion)
-        return ExplorationState(
-            revealedSectorIds = decodeIds(fields.getValue("revealed")),
-            unlockedSectorIds = decodeIds(fields.getValue("unlocked")),
-            discoveredRareDepositIds = decodeIds(fields.getValue("rareDeposits")),
-            spentSpaceDollars = fields.getValue("spentSpaceDollars").toLong(),
-            spentComponents = decodeMap(fields.getValue("spentComponents")),
-            activeMissionSectorId = fields.getValue("activeMission").takeIf { it.isNotBlank() }?.let(GameId::of),
-            transactionSequence = fields.getValue("transactionSequence").toLong(),
+        val fields = VersionedFieldReader.decode(payload.bytes, "exploration snapshot")
+        fields.requireOnly(
+            "format",
+            "contentVersion",
+            "revealed",
+            "unlocked",
+            "rareDeposits",
+            "spentSpaceDollars",
+            "spentComponents",
+            "activeMission",
+            "transactionSequence",
         )
-    }
-
-    private fun encodeIds(values: Set<GameId>): String = values.sortedBy { it.value }.joinToString(",") { it.value }
-    private fun decodeIds(value: String): Set<GameId> = if (value.isBlank()) emptySet() else value.split(',').mapTo(linkedSetOf(), GameId::of)
-    private fun encodeMap(values: Map<GameId, Long>): String = values.entries.sortedBy { it.key.value }.joinToString(",") { "${it.key.value}:${it.value}" }
-    private fun decodeMap(value: String): Map<GameId, Long> = if (value.isBlank()) emptyMap() else value.split(',').associate { entry ->
-        val parts = entry.split(':'); require(parts.size == 2); GameId.of(parts[0]) to parts[1].toLong()
+        require(fields.int("format") == FORMAT_VERSION)
+        require(fields.string("contentVersion") == payload.contentVersion)
+        return ExplorationState(
+            revealedSectorIds = SaveFieldCollections.decodeIds(fields.string("revealed")),
+            unlockedSectorIds = SaveFieldCollections.decodeIds(fields.string("unlocked")),
+            discoveredRareDepositIds = SaveFieldCollections.decodeIds(fields.string("rareDeposits")),
+            spentSpaceDollars = fields.long("spentSpaceDollars"),
+            spentComponents = SaveFieldCollections.decodeQuantities(fields.string("spentComponents")),
+            activeMissionSectorId = fields.string("activeMission")
+                .takeIf { it.isNotBlank() }
+                ?.let(GameId::of),
+            transactionSequence = fields.long("transactionSequence"),
+        )
     }
 
     companion object {
