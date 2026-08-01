@@ -11,27 +11,37 @@
 - journal binaire de transactions multi-slots avec préparation, reprise et application idempotente ;
 - reprise d’une transaction incomplète avant tout chargement de sauvegarde ou d’écran ;
 - transfert Ferrum Delta → Cryos IX déplacé hors de l’écran vers un coordinateur testable ;
+- ouverture des secteurs atomique entre économie et exploration ;
+- logique de production, simulation et sauvegarde extraite de `ManufacturingPlanetScreen` vers `ManufacturingCoordinator` ;
+- les actions de production passent maintenant par une API indépendante de LibGDX ;
 - routage initial isolé dans un résolveur pur et testé ;
 - erreurs de chargement importantes enregistrées au lieu d’être toutes absorbées silencieusement ;
-- Android Lint intégré aux contrôles locaux et au préflight release ;
-- chargement, validation et sauvegarde de l’exploration sortis de `SectorExplorationScreen` ;
-- ouverture de secteur enregistrée comme une transaction unique entre `primary` et `exploration` ;
-- interactions d’exploration bloquées lorsqu’une transaction doit être reprise ;
-- tests ajoutés pour l’engagement conjoint des coûts, du secteur et de la ressource rare.
+- Android Lint intégré aux contrôles locaux et au préflight release.
 
-## Délibérément non traité dans ces passes
+## Délibérément non traité dans cette passe
 
 - musiques et sons définitifs ;
 - modèles 3D, textures, icônes et VFX finaux ;
 - refonte graphique des écrans ;
 - publication Google Play et validations sur appareils physiques.
 
+## Priorités en cours
+
+1. **Terminé** — extraire la production hors de `ManufacturingPlanetScreen`.
+2. Sécuriser toutes les mutations en cas d’échec de sauvegarde.
+3. Étendre les transactions multi-slots aux récompenses et événements.
+4. Centraliser les textes affichés.
+5. Mutualiser les codecs versionnés.
+6. Renforcer les tests Android et interface.
+7. Raccorder les publicités contextuelles.
+8. Préparer les performances et la gestion des futurs assets.
+9. Uniformiser les diagnostics locaux.
+10. Renforcer la validation release.
+
 ## Dette restante
 
-- extraire la simulation, la persistance et les actions de `ManufacturingPlanetScreen` ;
-- séparer progressivement les renderers et modèles de vue des écrans LibGDX ;
+- séparer progressivement le renderer et le calcul de layout du nouvel écran de production ;
 - étendre le journal multi-slots aux autres opérations qui modifient plusieurs sauvegardes ;
-- centraliser tous les textes affichés avant une éventuelle traduction ;
 - remplacer progressivement les codecs textuels artisanaux par une sérialisation partagée et versionnée ;
 - ajouter des tests instrumentés Android du cycle de vie, du consentement et des formats paysage ;
 - raccorder les offres publicitaires contextuelles au retour hors ligne et aux météorites.

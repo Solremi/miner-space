@@ -13,27 +13,14 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ExtendViewport
-import fr.solremi.minerspace.data.assembly.AssemblyContentLoader
-import fr.solremi.minerspace.data.economy.CoreEconomyContentLoader
-import fr.solremi.minerspace.data.refining.RefiningContentLoader
-import fr.solremi.minerspace.data.save.ManufacturingSnapshotCodec
-import fr.solremi.minerspace.domain.assembly.AssemblyCommandResult
-import fr.solremi.minerspace.domain.assembly.AssemblyEngine
+import fr.solremi.minerspace.data.manufacturing.ManufacturingActionResult
+import fr.solremi.minerspace.data.manufacturing.ManufacturingCoordinator
 import fr.solremi.minerspace.domain.assembly.AssemblyJobStatus
-import fr.solremi.minerspace.domain.assembly.AssemblyState
-import fr.solremi.minerspace.domain.assembly.ManufacturingGameState
 import fr.solremi.minerspace.domain.assembly.TechnologyDefinition
-import fr.solremi.minerspace.domain.economy.CoreEconomyEngine
-import fr.solremi.minerspace.domain.economy.EconomyCommandResult
-import fr.solremi.minerspace.domain.economy.advanceExtraction
-import fr.solremi.minerspace.domain.refining.RefiningCommandResult
-import fr.solremi.minerspace.domain.refining.RefiningEngine
 import fr.solremi.minerspace.domain.refining.RefiningJobStatus
-import fr.solremi.minerspace.domain.refining.RefiningState
 import fr.solremi.minerspace.domain.services.GameServices
 import fr.solremi.minerspace.domain.services.LifecycleObserver
 import fr.solremi.minerspace.domain.services.LifecycleState
-import fr.solremi.minerspace.domain.services.SaveWriteStatus
 import fr.solremi.minerspace.shared.GameId
 import ktx.app.KtxScreen
 import kotlin.math.max
@@ -41,6 +28,11 @@ import kotlin.math.max
 class ManufacturingPlanetScreen(
     private val services: GameServices,
 ) : KtxScreen {
+    private val controller = ManufacturingCoordinator.fromServices(services)
+    private val economyDefinitions = controller.economyDefinitions
+    private val refiningDefinitions = controller.refiningDefinitions
+    private val assemblyDefinitions = controller.assemblyDefinitions
+
     private val worldCamera = OrthographicCamera()
     private val worldViewport = ExtendViewport(640f, 320f, 960f, 540f, worldCamera)
     private val hudCamera = OrthographicCamera()
@@ -50,28 +42,10 @@ class ManufacturingPlanetScreen(
     private val font = BitmapFont().apply { data.setScale(0.80f) }
     private val smallFont = BitmapFont().apply { data.setScale(0.64f) }
 
-    private val economyDefinitions = CoreEconomyContentLoader().load(services.content)
-    private val refiningDefinitions = RefiningContentLoader().load(services.content)
-    private val assemblyDefinitions = AssemblyContentLoader().load(services.content)
-    private val economy = CoreEconomyEngine(economyDefinitions)
-    private val refiner = RefiningEngine(
-        refiningDefinitions,
-        economyDefinitions.resources.mapValues { it.value.storageCapacity },
-    )
-    private val assembler = AssemblyEngine(
-        assemblyDefinitions,
-        economyDefinitions.resources.mapValues { it.value.storageCapacity },
-    )
-    private val snapshotCodec = ManufacturingSnapshotCodec()
-
-    private var gameState = loadState()
     private var selected: Selection? = null
     private var refiningRecipeIndex = 0
     private var assemblyRecipeIndex = 0
     private var message = "Chaîne brute → technologie active"
-    private var lastTickMillis = 0L
-    private var remainderMillis = 0L
-    private var lastAutosaveMillis = 0L
     private var previousZoomDistance = 0f
     private var centered = false
 
@@ -93,21 +67,23 @@ class ManufacturingPlanetScreen(
     ).filter(assemblyDefinitions.recipes::containsKey)
 
     private val lifecycleObserver = LifecycleObserver { state ->
-        if (state == LifecycleState.BACKGROUND) saveState()
+        if (state == LifecycleState.BACKGROUND && !controller.save()) {
+            message = "Sauvegarde différée"
+        }
     }
     private val gestureListener = PlanetGestureListener()
     private val input = InputMultiplexer(GestureDetector(gestureListener))
 
+    private val gameState get() = controller.state
+
     override fun show() {
         Gdx.input.inputProcessor = input
         services.lifecycle.addObserver(lifecycleObserver)
-        lastTickMillis = services.clock.monotonicMillis()
-        lastAutosaveMillis = lastTickMillis
-        reconcileProduction()
+        controller.start()
     }
 
     override fun hide() {
-        saveState()
+        if (!controller.save()) message = "Sauvegarde différée"
         services.lifecycle.removeObserver(lifecycleObserver)
         if (Gdx.input.inputProcessor === input) Gdx.input.inputProcessor = null
     }
@@ -124,75 +100,11 @@ class ManufacturingPlanetScreen(
     }
 
     override fun render(delta: Float) {
-        updateSimulation()
+        val tick = controller.tick()
+        if (tick.autosaveFailed) message = "Sauvegarde automatique différée"
         ScreenUtils.clear(BACKGROUND)
         drawWorld()
         drawHud()
-    }
-
-    private fun initialState(): ManufacturingGameState = ManufacturingGameState(
-        economy.initialState(),
-        RefiningState.empty(),
-        AssemblyState.empty(),
-    )
-
-    private fun loadState(): ManufacturingGameState {
-        val initial = initialState()
-        val payload = services.save.loadLatest() ?: return initial
-        return runCatching {
-            require(payload.contentVersion == economyDefinitions.contentVersion)
-            require(refiningDefinitions.contentVersion == payload.contentVersion)
-            require(assemblyDefinitions.contentVersion == payload.contentVersion)
-            val restored = snapshotCodec.decode(payload)
-            economy.requireValid(restored.economy)
-            val withRefining = restored.withRefining(
-                refiner.reconcile(restored.refiningView(), services.clock.nowEpochMillis()),
-            )
-            assembler.reconcile(withRefining, services.clock.nowEpochMillis())
-        }.getOrElse {
-            message = "Sauvegarde antérieure ignorée"
-            initial
-        }
-    }
-
-    private fun saveState(): Boolean = services.save.save(
-        snapshotCodec.encode(gameState, economyDefinitions.contentVersion),
-    ) == SaveWriteStatus.WRITTEN
-
-    private fun reconcileProduction() {
-        val now = services.clock.nowEpochMillis()
-        gameState = gameState.withRefining(refiner.reconcile(gameState.refiningView(), now))
-        gameState = assembler.reconcile(gameState, now)
-    }
-
-    private fun updateSimulation() {
-        val monotonicNow = services.clock.monotonicMillis()
-        remainderMillis = Math.addExact(
-            remainderMillis,
-            (monotonicNow - lastTickMillis).coerceAtLeast(0L),
-        )
-        lastTickMillis = monotonicNow
-        var changed = false
-        val seconds = remainderMillis / 1_000L
-        if (seconds > 0L) {
-            remainderMillis %= 1_000L
-            val extraction = economy.advanceExtraction(
-                gameState.economy,
-                seconds,
-                assembler.productionMultipliers(gameState.assembly),
-            )
-            if (extraction.state != gameState.economy) {
-                gameState = gameState.copy(economy = extraction.state)
-                changed = true
-            }
-        }
-        val before = gameState
-        reconcileProduction()
-        if (before != gameState) changed = true
-        if (changed && monotonicNow - lastAutosaveMillis >= AUTOSAVE_INTERVAL_MILLIS) {
-            saveState()
-            lastAutosaveMillis = monotonicNow
-        }
     }
 
     private fun drawWorld() {
@@ -205,8 +117,16 @@ class ManufacturingPlanetScreen(
         shapes.color = MAP_GROUND
         shapes.rect(0f, 0f, MAP_WIDTH, MAP_HEIGHT)
         drawMachine(baseBounds, BASE, false)
-        drawMachine(assemblerBounds, ASSEMBLER, gameState.assembly.jobs.any { it.status == AssemblyJobStatus.RUNNING })
-        drawMachine(refinerBounds, REFINER, gameState.refining.jobs.any { it.status == RefiningJobStatus.RUNNING })
+        drawMachine(
+            assemblerBounds,
+            ASSEMBLER,
+            gameState.assembly.jobs.any { it.status == AssemblyJobStatus.RUNNING },
+        )
+        drawMachine(
+            refinerBounds,
+            REFINER,
+            gameState.refining.jobs.any { it.status == RefiningJobStatus.RUNNING },
+        )
         deposits.forEach(::drawDeposit)
         drawSelection()
         shapes.end()
@@ -236,8 +156,13 @@ class ManufacturingPlanetScreen(
         font.draw(batch, "AS-01", assemblerBounds.x + 39f, assemblerBounds.y + 54f)
         font.draw(batch, "RF-01", refinerBounds.x + 42f, refinerBounds.y + 54f)
         deposits.forEach { marker ->
-            val state = gameState.economy.deposits.getValue(marker.id)
-            font.draw(batch, "${marker.label} · ${state.remainingReserve}", marker.position.x - 55f, marker.position.y + marker.radius + 24f)
+            val deposit = gameState.economy.deposits.getValue(marker.id)
+            font.draw(
+                batch,
+                "${marker.label} · ${deposit.remainingReserve}",
+                marker.position.x - 55f,
+                marker.position.y + marker.radius + 24f,
+            )
         }
         batch.end()
     }
@@ -255,13 +180,18 @@ class ManufacturingPlanetScreen(
     }
 
     private fun drawDeposit(marker: Marker) {
-        val state = gameState.economy.deposits.getValue(marker.id)
+        val deposit = gameState.economy.deposits.getValue(marker.id)
         shapes.color = SHADOW
         shapes.circle(marker.position.x + 8f, marker.position.y - 9f, marker.radius, 24)
-        shapes.color = if (state.remainingReserve > 0L) marker.color else DEPLETED
+        shapes.color = if (deposit.remainingReserve > 0L) marker.color else DEPLETED
         shapes.circle(marker.position.x, marker.position.y, marker.radius, 24)
         shapes.color = HIGHLIGHT
-        shapes.circle(marker.position.x - marker.radius * 0.25f, marker.position.y + marker.radius * 0.28f, marker.radius * 0.25f, 16)
+        shapes.circle(
+            marker.position.x - marker.radius * 0.25f,
+            marker.position.y + marker.radius * 0.28f,
+            marker.radius * 0.25f,
+            16,
+        )
     }
 
     private fun drawSelection() {
@@ -288,22 +218,30 @@ class ManufacturingPlanetScreen(
     private fun drawProgress(bounds: Rectangle, progress: Float?, color: Color) {
         if (progress == null) return
         shapes.color = color
-        shapes.line(bounds.x + 10f, bounds.y + 7f, bounds.x + 10f + (bounds.width - 20f) * progress, bounds.y + 7f)
+        shapes.line(
+            bounds.x + 10f,
+            bounds.y + 7f,
+            bounds.x + 10f + (bounds.width - 20f) * progress,
+            bounds.y + 7f,
+        )
     }
 
     private fun refiningProgress(): Float? {
-        val job = gameState.refining.jobs.firstOrNull { it.status == RefiningJobStatus.RUNNING } ?: return null
+        val job = gameState.refining.jobs.firstOrNull { it.status == RefiningJobStatus.RUNNING }
+            ?: return null
         return progress(job.startsAtEpochMillis, job.finishesAtEpochMillis)
     }
 
     private fun assemblyProgress(): Float? {
-        val job = gameState.assembly.jobs.firstOrNull { it.status == AssemblyJobStatus.RUNNING } ?: return null
+        val job = gameState.assembly.jobs.firstOrNull { it.status == AssemblyJobStatus.RUNNING }
+            ?: return null
         return progress(job.startsAtEpochMillis, job.finishesAtEpochMillis)
     }
 
     private fun progress(start: Long, finish: Long): Float {
         val duration = (finish - start).coerceAtLeast(1L)
-        return (services.clock.nowEpochMillis() - start).coerceIn(0L, duration).toFloat() / duration.toFloat()
+        val elapsed = (services.clock.nowEpochMillis() - start).coerceIn(0L, duration)
+        return elapsed.toFloat() / duration.toFloat()
     }
 
     private fun drawHud() {
@@ -328,7 +266,12 @@ class ManufacturingPlanetScreen(
         smallFont.color = MUTED
         font.draw(batch, "MINER SPACE", layout.top.x + 12f, layout.top.y + layout.top.height - 13f)
         smallFont.draw(batch, economyLine(), layout.top.x + 12f, layout.top.y + 14f)
-        smallFont.draw(batch, "${Gdx.graphics.framesPerSecond} FPS", layout.top.x + layout.top.width - 62f, layout.top.y + 17f)
+        smallFont.draw(
+            batch,
+            "${Gdx.graphics.framesPerSecond} FPS",
+            layout.top.x + layout.top.width - 62f,
+            layout.top.y + 17f,
+        )
         font.draw(batch, selectionTitle(), layout.panel.x + 12f, layout.panel.y + layout.panel.height - 13f)
         smallFont.draw(batch, selectionDetails(), layout.panel.x + 12f, layout.panel.y + 13f)
         drawButtonLabel(layout.recipe, recipeLabel())
@@ -351,8 +294,10 @@ class ManufacturingPlanetScreen(
     }
 
     private fun economyLine(): String {
-        val technologyMultiplier = assembler.productionMultipliers(gameState.assembly).technologies
-        return "${gameState.economy.spaceDollars} SD · Fe ${stock(RAW_IRON)} · Lg ${stock(REFINED_IRON)} · Pile ${stock(COMPONENT_POWER_CELL)} · Tech ${gameState.assembly.installedTechnologyIds.size} · x${technologyMultiplier / 10_000L}%"
+        val multiplier = controller.assembler.productionMultipliers(gameState.assembly).technologies
+        return "${gameState.economy.spaceDollars} SD · Fe ${controller.stock(RAW_IRON)} · " +
+            "Lg ${controller.stock(REFINED_IRON)} · Pile ${controller.stock(COMPONENT_POWER_CELL)} · " +
+            "Tech ${gameState.assembly.installedTechnologyIds.size} · x${multiplier / 10_000L}%"
     }
 
     private fun selectionTitle(): String = when (val target = selected) {
@@ -368,9 +313,9 @@ class ManufacturingPlanetScreen(
         Selection.Assembler -> assemblyDetails()
         Selection.Refiner -> refiningDetails()
         is Selection.Deposit -> {
-            val state = gameState.economy.deposits.getValue(target.id)
+            val deposit = gameState.economy.deposits.getValue(target.id)
             val rate = economyDefinitions.deposits.getValue(target.id).extractionPerSecond
-            "Réserve ${state.remainingReserve} · collecte ${state.pendingCollection} · $rate/s"
+            "Réserve ${deposit.remainingReserve} · collecte ${deposit.pendingCollection} · $rate/s"
         }
         null -> "Touchez un gisement, RF-01, AS-01 ou la base"
     }
@@ -388,14 +333,18 @@ class ManufacturingPlanetScreen(
     private fun assemblyDetails(): String {
         val recipe = selectedAssemblyRecipe()
         val technology = selectedAssemblyTechnology()
-        val missingPrerequisite = !gameState.assembly.installedTechnologyIds.containsAll(recipe.requiredTechnologyIds)
-        if (missingPrerequisite) return "${selectedAssemblyRecipeName()} · verrouillée par l’arbre technologique"
+        if (!gameState.assembly.installedTechnologyIds.containsAll(recipe.requiredTechnologyIds)) {
+            return "${selectedAssemblyRecipeName()} · verrouillée par l’arbre technologique"
+        }
         val ready = gameState.assembly.jobs.count { it.status == AssemblyJobStatus.READY_TO_COLLECT }
         if (ready > 0) return "$ready production(s) AS prête(s) · sortie conservée"
         if (technology != null) {
-            val comparison = assembler.compareExtraction(BASE_EXTRACTION_PER_SECOND, gameState.assembly, technology.id)
-            val installed = technology.id in gameState.assembly.installedTechnologyIds
-            return if (installed) {
+            val comparison = controller.assembler.compareExtraction(
+                BASE_EXTRACTION_PER_SECOND,
+                gameState.assembly,
+                technology.id,
+            )
+            return if (technology.id in gameState.assembly.installedTechnologyIds) {
                 "${selectedAssemblyRecipeName()} installée · ${comparison.currentPerMinute}/min"
             } else {
                 "${selectedAssemblyRecipeName()} · ${comparison.currentPerMinute} → ${comparison.projectedPerMinute}/min"
@@ -406,8 +355,6 @@ class ManufacturingPlanetScreen(
 
     private fun remainingSeconds(finish: Long): Long =
         ((finish - services.clock.nowEpochMillis()) / 1_000L).coerceAtLeast(0L)
-
-    private fun stock(resourceId: GameId): Long = gameState.economy.inventory[resourceId] ?: 0L
 
     private fun recipeAvailable(): Boolean = selected == Selection.Refiner || selected == Selection.Assembler
 
@@ -431,7 +378,11 @@ class ManufacturingPlanetScreen(
 
     private fun taskLabel(): String = when (selected) {
         Selection.Base -> if (gameState.refining.refundBuffer.isNotEmpty()) "REMBOURS." else "TÂCHE"
-        Selection.Refiner -> if (gameState.refining.jobs.any { it.status == RefiningJobStatus.READY_TO_COLLECT }) "COLLECTER" else "ANNULER"
+        Selection.Refiner -> if (gameState.refining.jobs.any { it.status == RefiningJobStatus.READY_TO_COLLECT }) {
+            "COLLECTER"
+        } else {
+            "ANNULER"
+        }
         Selection.Assembler -> when {
             gameState.assembly.jobs.any { it.status == AssemblyJobStatus.READY_TO_COLLECT } -> "COLLECTER"
             technologyInstallAvailable() -> "INSTALLER"
@@ -442,8 +393,8 @@ class ManufacturingPlanetScreen(
 
     private fun launchAvailable(): Boolean = when (val target = selected) {
         Selection.Base -> gameState.economy.inventory.values.any { it > 0L }
-        Selection.Refiner -> canLaunchRefining()
-        Selection.Assembler -> canLaunchAssembly()
+        Selection.Refiner -> controller.canLaunchRefining(selectedRefiningRecipeId())
+        Selection.Assembler -> controller.canLaunchAssembly(selectedAssemblyRecipeId())
         is Selection.Deposit -> gameState.economy.deposits.getValue(target.id).pendingCollection > 0L
         null -> false
     }
@@ -455,139 +406,100 @@ class ManufacturingPlanetScreen(
         else -> false
     }
 
-    private fun canLaunchRefining(): Boolean {
-        if (gameState.refining.jobs.size >= refiningDefinitions.robot.queueCapacity) return false
-        return selectedRefiningRecipe().inputs.all { (id, quantity) -> stock(id) >= quantity }
-    }
-
-    private fun canLaunchAssembly(): Boolean {
-        val recipe = selectedAssemblyRecipe()
-        if (gameState.assembly.jobs.size >= assemblyDefinitions.robot.queueCapacity) return false
-        if (!gameState.assembly.installedTechnologyIds.containsAll(recipe.requiredTechnologyIds)) return false
-        return recipe.inputs.all { (id, quantity) -> stock(id) >= quantity }
-    }
-
-    private fun technologyInstallAvailable(): Boolean {
-        val technology = selectedAssemblyTechnology() ?: return false
-        if (technology.id in gameState.assembly.installedTechnologyIds) return false
-        if (!gameState.assembly.installedTechnologyIds.containsAll(technology.requiredTechnologyIds)) return false
-        return stock(technology.itemResourceId) > 0L
-    }
+    private fun technologyInstallAvailable(): Boolean =
+        selectedAssemblyTechnology()?.let { controller.canInstallTechnology(it.id) } == true
 
     private fun performLaunchAction() {
-        when (val target = selected) {
-            Selection.Base -> applyEconomy(economy.sellAllSellable(gameState.economy))
-            Selection.Refiner -> applyRefining(
-                refiner.launch(gameState.refiningView(), selectedRefiningRecipeId(), services.clock.nowEpochMillis()),
-            )
-            Selection.Assembler -> applyAssembly(
-                assembler.launch(gameState, selectedAssemblyRecipeId(), services.clock.nowEpochMillis()),
-            )
-            is Selection.Deposit -> applyEconomy(economy.collect(gameState.economy, target.id))
-            null -> Unit
+        val result = when (val target = selected) {
+            Selection.Base -> controller.sellAll()
+            Selection.Refiner -> controller.launchRefining(selectedRefiningRecipeId())
+            Selection.Assembler -> controller.launchAssembly(selectedAssemblyRecipeId())
+            is Selection.Deposit -> controller.collectDeposit(target.id)
+            null -> return
         }
+        handleAction(result)
     }
 
     private fun performTaskAction() {
-        when (selected) {
-            Selection.Base -> applyRefining(refiner.collectRefunds(gameState.refiningView()))
+        val result = when (selected) {
+            Selection.Base -> controller.collectRefiningRefunds()
             Selection.Refiner -> {
                 val ready = gameState.refining.jobs.firstOrNull { it.status == RefiningJobStatus.READY_TO_COLLECT }
-                val result = if (ready != null) {
-                    refiner.collect(gameState.refiningView(), ready.id, services.clock.nowEpochMillis())
+                if (ready != null) {
+                    controller.collectRefining(ready.id)
                 } else {
                     val first = gameState.refining.jobs.firstOrNull() ?: return
-                    refiner.cancel(gameState.refiningView(), first.id, services.clock.nowEpochMillis())
+                    controller.cancelRefining(first.id)
                 }
-                applyRefining(result)
             }
             Selection.Assembler -> {
                 val ready = gameState.assembly.jobs.firstOrNull { it.status == AssemblyJobStatus.READY_TO_COLLECT }
                 if (ready != null) {
-                    applyAssembly(assembler.collect(gameState, ready.id, services.clock.nowEpochMillis()))
+                    controller.collectAssembly(ready.id)
                 } else {
                     val technology = selectedAssemblyTechnology() ?: return
-                    applyAssembly(assembler.installTechnology(gameState, technology.id))
+                    controller.installTechnology(technology.id)
                 }
             }
-            else -> Unit
+            else -> return
         }
+        handleAction(result)
     }
 
-    private fun applyEconomy(result: EconomyCommandResult) {
+    private fun handleAction(result: ManufacturingActionResult) {
         when (result) {
-            is EconomyCommandResult.Applied -> {
-                gameState = gameState.copy(economy = result.state)
-                message = if (result.transaction.reason == "sell_all") "+${result.transaction.spaceDollarDelta} SD" else "Collecte transférée"
-                persistAction()
+            is ManufacturingActionResult.Applied -> {
+                message = successMessage(result.reason)
+                services.haptic.success()
             }
-            is EconomyCommandResult.Rejected -> reject(result.code)
-        }
-    }
-
-    private fun applyRefining(result: RefiningCommandResult) {
-        when (result) {
-            is RefiningCommandResult.Applied -> {
-                gameState = gameState.withRefining(result.state)
-                message = when {
-                    result.transaction.reason == "launch_refining" -> "Raffinage lancé · ingrédients réservés"
-                    result.transaction.reason == "collect_refining" -> "Matériau raffiné collecté"
-                    result.transaction.reason.startsWith("cancel_refining") -> "Raffinage annulé · remboursement appliqué"
-                    else -> "Remboursement collecté"
-                }
-                persistAction()
+            is ManufacturingActionResult.Rejected -> {
+                message = rejectionMessage(result.code)
+                services.haptic.warning()
             }
-            is RefiningCommandResult.Rejected -> reject(result.code)
-        }
-    }
-
-    private fun applyAssembly(result: AssemblyCommandResult) {
-        when (result) {
-            is AssemblyCommandResult.Applied -> {
-                gameState = result.state
-                message = when (result.transaction.reason) {
-                    "launch_assembly" -> "Assemblage lancé · composants réservés"
-                    "collect_assembly" -> "Production AS collectée"
-                    "install_technology" -> "Technologie installée · effet appliqué"
-                    else -> result.transaction.reason
-                }
-                persistAction()
+            is ManufacturingActionResult.PersistenceFailed -> {
+                message = "Action annulée · sauvegarde indisponible"
+                services.haptic.warning()
             }
-            is AssemblyCommandResult.Rejected -> reject(result.code)
         }
     }
 
-    private fun persistAction() {
-        if (saveState()) services.haptic.success() else {
-            message = "Action appliquée · sauvegarde échouée"
-            services.haptic.warning()
-        }
+    private fun successMessage(reason: String): String = when {
+        reason == "sell_all" -> "Stock vendu"
+        reason == "collect" -> "Collecte transférée"
+        reason == "launch_refining" -> "Raffinage lancé · ingrédients réservés"
+        reason == "collect_refining" -> "Matériau raffiné collecté"
+        reason.startsWith("cancel_refining") -> "Raffinage annulé · remboursement appliqué"
+        reason == "launch_assembly" -> "Assemblage lancé · composants réservés"
+        reason == "collect_assembly" -> "Production AS collectée"
+        reason == "install_technology" -> "Technologie installée · effet appliqué"
+        else -> "Action enregistrée"
     }
 
-    private fun reject(code: String) {
-        message = when {
-            code == "technology_prerequisite_missing" -> "Technologie verrouillée · installez le nœud précédent"
-            code == "technology_item_missing" -> "Fabriquez puis collectez la technologie"
-            code == "output_storage_full" -> "Stockage plein · résultat conservé"
-            code.startsWith("missing_input") -> "Matériaux insuffisants"
-            else -> code
-        }
-        services.haptic.warning()
+    private fun rejectionMessage(code: String): String = when {
+        code == "technology_prerequisite_missing" -> "Technologie verrouillée · installez le nœud précédent"
+        code == "technology_item_missing" -> "Fabriquez puis collectez la technologie"
+        code == "output_storage_full" -> "Stockage plein · résultat conservé"
+        code.startsWith("missing_input") -> "Matériaux insuffisants"
+        else -> code
     }
 
     private fun cycleRecipe() {
         when (selected) {
-            Selection.Refiner -> refiningRecipeIndex = (refiningRecipeIndex + 1) % refiningRecipeIds.size
-            Selection.Assembler -> assemblyRecipeIndex = (assemblyRecipeIndex + 1) % assemblyRecipeIds.size
+            Selection.Refiner -> if (refiningRecipeIds.isNotEmpty()) {
+                refiningRecipeIndex = (refiningRecipeIndex + 1) % refiningRecipeIds.size
+            }
+            Selection.Assembler -> if (assemblyRecipeIds.isNotEmpty()) {
+                assemblyRecipeIndex = (assemblyRecipeIndex + 1) % assemblyRecipeIds.size
+            }
             else -> return
         }
         services.haptic.impact()
     }
 
     private fun selectedRefiningRecipeId(): GameId = refiningRecipeIds[refiningRecipeIndex]
-    private fun selectedRefiningRecipe() = refiningDefinitions.recipes.getValue(selectedRefiningRecipeId())
     private fun selectedRefiningRecipeName(): String = refiningRecipeName(selectedRefiningRecipeId())
-    private fun refiningRecipeName(id: GameId): String = if (id == RECIPE_IRON) "Lingots de fer" else "Plaques de cuivre"
+    private fun refiningRecipeName(id: GameId): String =
+        if (id == RECIPE_IRON) "Lingots de fer" else "Plaques de cuivre"
 
     private fun selectedAssemblyRecipeId(): GameId = assemblyRecipeIds[assemblyRecipeIndex]
     private fun selectedAssemblyRecipe() = assemblyDefinitions.recipes.getValue(selectedAssemblyRecipeId())
@@ -619,12 +531,22 @@ class ManufacturingPlanetScreen(
         val launch = Rectangle(task.x - gap - 92f, bottom, 92f, 48f)
         val recipe = Rectangle(launch.x - gap - 86f, bottom, 86f, 48f)
         return HudLayout(
-            Rectangle(left, top - if (compact) 50f else 56f, right - left, if (compact) 50f else 56f),
-            Rectangle(left, bottom, (recipe.x - gap - left).coerceAtLeast(190f), if (compact) 58f else 64f),
-            recipe,
-            launch,
-            task,
-            base,
+            top = Rectangle(
+                left,
+                top - if (compact) 50f else 56f,
+                right - left,
+                if (compact) 50f else 56f,
+            ),
+            panel = Rectangle(
+                left,
+                bottom,
+                (recipe.x - gap - left).coerceAtLeast(190f),
+                if (compact) 58f else 64f,
+            ),
+            recipe = recipe,
+            launch = launch,
+            task = task,
+            base = base,
         )
     }
 
@@ -634,7 +556,10 @@ class ManufacturingPlanetScreen(
         val padding = 28f * worldCamera.zoom
         val marker = deposits
             .map { it to it.position.dst2(point) }
-            .filter { (candidate, distance) -> distance <= max(candidate.radius, padding).let { it * it } }
+            .filter { (candidate, distance) ->
+                val radius = max(candidate.radius, padding)
+                distance <= radius * radius
+            }
             .minByOrNull { it.second }
             ?.first
         val previous = selected
@@ -673,13 +598,15 @@ class ManufacturingPlanetScreen(
     private fun clampAxis(value: Float, size: Float, halfVisible: Float): Float =
         if (halfVisible * 2f >= size) size / 2f else value.coerceIn(halfVisible, size - halfVisible)
 
-    private fun screenToHud(x: Float, y: Float): Vector2 = Vector2(x, y).also(hudViewport::unproject)
+    private fun screenToHud(x: Float, y: Float): Vector2 =
+        Vector2(x, y).also(hudViewport::unproject)
 
     private fun isHudPoint(x: Float, y: Float): Boolean {
         val point = screenToHud(x, y)
         val layout = hudLayout()
-        return layout.top.contains(point) || layout.panel.contains(point) || layout.recipe.contains(point) ||
-            layout.launch.contains(point) || layout.task.contains(point) || layout.base.contains(point)
+        return layout.top.contains(point) || layout.panel.contains(point) ||
+            layout.recipe.contains(point) || layout.launch.contains(point) ||
+            layout.task.contains(point) || layout.base.contains(point)
     }
 
     override fun dispose() {
@@ -764,7 +691,6 @@ class ManufacturingPlanetScreen(
     private companion object {
         const val MAP_WIDTH = 1600f
         const val MAP_HEIGHT = 900f
-        const val AUTOSAVE_INTERVAL_MILLIS = 5_000L
         const val BASE_EXTRACTION_PER_SECOND = 6L
 
         val RAW_IRON = GameId.of("raw_iron")
