@@ -77,9 +77,7 @@ for token in (
     if token not in coalescing:
         errors.append(f"coalescing save guard missing: {token}")
 
-services = read(
-    "domain/src/main/kotlin/fr/solremi/minerspace/domain/services/GameServices.kt"
-)
+services = read("domain/src/main/kotlin/fr/solremi/minerspace/domain/services/GameServices.kt")
 if "val deferredSave: DeferredSaveService? = null" not in services:
     errors.append("GameServices does not expose optional deferred saves")
 
@@ -103,11 +101,60 @@ for token in (
     if token not in android_services:
         errors.append(f"Android save or diagnostics integration missing: {token}")
 
-main_activity = read(
-    "androidApp/src/main/kotlin/fr/solremi/minerspace/android/MainActivity.kt"
-)
+main_activity = read("androidApp/src/main/kotlin/fr/solremi/minerspace/android/MainActivity.kt")
 if "logger = AndroidDiagnosticLogger" not in main_activity:
     errors.append("MinerSpaceGame is not using the structured Android diagnostic logger")
+
+required_features = {
+    "game/src/main/kotlin/fr/solremi/minerspace/game/scene/FerrumPrimitiveScene.kt": (
+        "class FerrumPrimitiveScene",
+        "ModelBatch",
+        "FerrumSceneSpec",
+    ),
+    "game/src/main/kotlin/fr/solremi/minerspace/game/screen/FerrumVerticalSliceScreen.kt": (
+        "class FerrumVerticalSliceScreen",
+        "RuntimePerformanceBudgets.forQuality",
+        "scene.render(",
+    ),
+    "game/src/main/kotlin/fr/solremi/minerspace/game/assets/LibGdxAssetBackend.kt": (
+        "class LibGdxAssetBackend",
+        "GlbLoaderRegistrar",
+        "AssetManager",
+    ),
+    "game/src/main/kotlin/fr/solremi/minerspace/game/ui/GameUi.kt": (
+        "FerrumHudLayoutCalculator",
+        "MIN_TOUCH_SIZE = 48f",
+    ),
+    "data/src/main/kotlin/fr/solremi/minerspace/data/json/StrictJson.kt": (
+        "object StrictJson",
+        "Duplicate JSON key",
+        "requireKnownKeys",
+    ),
+    "simulation/src/main/kotlin/fr/solremi/minerspace/simulation/balance/LongHorizonBalanceSimulator.kt": (
+        "class LongHorizonBalanceSimulator",
+        "REGULAR_NO_ADS",
+        "IndustrialStrategy",
+    ),
+}
+for relative, tokens in required_features.items():
+    content = read(relative)
+    for token in tokens:
+        if token not in content:
+            errors.append(f"required feature missing in {relative}: {token}")
+
+routing = read("game/src/main/kotlin/fr/solremi/minerspace/game/MinerSpaceGame.kt")
+if "InitialRoute.FERRUM -> setScreen<FerrumVerticalSliceScreen>()" not in routing:
+    errors.append("Ferrum route does not open the 2.5D vertical slice")
+
+for relative in (
+    "data/src/main/kotlin/fr/solremi/minerspace/data/economy/CoreEconomyContentLoader.kt",
+    "data/src/main/kotlin/fr/solremi/minerspace/data/progression/ProgressionContentLoader.kt",
+):
+    content = read(relative)
+    if "StrictJson.parse" not in content:
+        errors.append(f"content loader does not use StrictJson: {relative}")
+    if "private class JsonParser" in content or "private class Parser" in content:
+        errors.append(f"duplicated JSON parser remains in {relative}")
 
 if errors:
     print("SOURCE SAFETY CHECK: FAILED", file=sys.stderr)
