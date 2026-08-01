@@ -12,4 +12,13 @@ set -eu
 
 case "$PRIVACY_POLICY_URL" in https://*) ;; *) echo "PRIVACY_POLICY_URL must use HTTPS" >&2; exit 1 ;; esac
 
-./gradlew :androidApp:validateReleaseConfiguration :domain:test :shared:test :data:test :simulation:test :androidApp:bundleRelease
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec sh "$SCRIPT_DIR/run-gradle.sh" \
+  :androidApp:validateReleaseConfiguration \
+  :domain:test \
+  :shared:test \
+  :data:test \
+  :simulation:test \
+  :game:test \
+  :androidApp:lintRelease \
+  :androidApp:bundleRelease

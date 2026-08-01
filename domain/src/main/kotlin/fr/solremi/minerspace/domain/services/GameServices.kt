@@ -1,5 +1,8 @@
 package fr.solremi.minerspace.domain.services
 
+import fr.solremi.minerspace.shared.GameLogger
+import fr.solremi.minerspace.shared.SilentGameLogger
+
 data class SavePayload(
     val slotId: String,
     val schemaVersion: Int,
@@ -66,4 +69,5 @@ data class GameServices(
     val analytics: AnalyticsService,
     val content: ContentRepository,
     val remoteConfig: RemoteConfigService,
+    val logger: GameLogger = SilentGameLogger,
 )

@@ -36,8 +36,9 @@ class AndroidPlatformServices(private val activity: Activity) {
         notifications = DisabledNotificationService,
         lifecycle = lifecycle,
         analytics = DisabledAnalyticsService,
-        content = AndroidAssetContentRepository(activity),
+        content = AndroidAssetContentRepository(activity, AndroidGameLogger),
         remoteConfig = LocalRemoteConfigService,
+        logger = AndroidGameLogger,
     )
 
     fun requestConsentAtLaunch() { consent.requestIfNeeded { } }
@@ -139,10 +140,19 @@ private class AndroidLifecycleService : LifecycleService {
     }
 }
 
-private class AndroidAssetContentRepository(private val activity: Activity) : ContentRepository {
+private class AndroidAssetContentRepository(
+    private val activity: Activity,
+    private val logger: GameLogger,
+) : ContentRepository {
     override fun readText(path: String): String? = runCatching {
         activity.assets.open(path).bufferedReader().use { it.readText() }
+    }.onFailure {
+        logger.error(TAG, "Unable to read Android asset: $path", it)
     }.getOrNull()
+
+    private companion object {
+        const val TAG = "AndroidAssetContent"
+    }
 }
 
 private object DisabledNotificationService : NotificationService {

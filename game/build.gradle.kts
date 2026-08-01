@@ -13,6 +13,12 @@ dependencies {
 
     implementation(project(":domain"))
     implementation(project(":data"))
-    implementation(project(":simulation"))
     implementation(project(":shared"))
+
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

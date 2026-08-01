@@ -11,15 +11,15 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ExtendViewport
-import fr.solremi.minerspace.data.robot.RobotContentLoader
-import fr.solremi.minerspace.data.save.*
-import fr.solremi.minerspace.domain.prestige.*
-import fr.solremi.minerspace.domain.robot.RobotAutomationEngine
-import fr.solremi.minerspace.domain.robot.RobotAutomationState
+import fr.solremi.minerspace.data.prestige.PlanetTransferCoordinationResult
+import fr.solremi.minerspace.data.prestige.PlanetTransferCoordinator
+import fr.solremi.minerspace.data.transaction.SaveTransactionResult
+import fr.solremi.minerspace.data.transaction.SaveTransactionStatus
+import fr.solremi.minerspace.domain.prestige.PlanetId
+import fr.solremi.minerspace.domain.prestige.PrestigeSnapshot
+import fr.solremi.minerspace.domain.prestige.PrestigeState
+import fr.solremi.minerspace.domain.prestige.VeteranRobotSnapshot
 import fr.solremi.minerspace.domain.services.GameServices
-import fr.solremi.minerspace.domain.services.SaveWriteStatus
-import fr.solremi.minerspace.domain.strategy.SpecializationId
-import fr.solremi.minerspace.shared.GameId
 import ktx.app.KtxScreen
 import kotlin.math.max
 
@@ -34,31 +34,23 @@ class PlanetTransferScreen(
     private val batch = SpriteBatch()
     private val font = BitmapFont().apply { data.setScale(.76f) }
     private val small = BitmapFont().apply { data.setScale(.58f) }
-    private val engine = PlanetPrestigeEngine()
-    private val prestigeCodec = PrestigeStateCodec()
-    private val cryosCodec = CryosIxStateCodec()
-    private val sectorCodec = SectorProgressCodec()
-    private val progressionCodec = ProgressionStateCodec()
-    private val narrativeCodec = NarrativeStateCodec()
-    private val strategyCodec = StrategyStateCodec()
-    private val robotCodec = RobotFleetCodec()
-    private val robotDefinitions = RobotContentLoader().load(services.content)
-    private val robotEngine = RobotAutomationEngine(robotDefinitions)
-    private var prestige = loadPrestige()
-    private var snapshot = snapshot()
+    private val coordinator = PlanetTransferCoordinator(services)
+    private var prestige: PrestigeState = coordinator.loadState()
+    private var snapshot: PrestigeSnapshot = coordinator.snapshot(now())
     private var message = "Le transfert conserve Codex, archives, bonus et un robot vétéran."
     private var current: Layout? = null
     private val input = object : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-            touch(Vector2(screenX.toFloat(), screenY.toFloat()).also(viewport::unproject)); return true
+            touch(Vector2(screenX.toFloat(), screenY.toFloat()).also(viewport::unproject))
+            return true
         }
     }
 
     override fun show() {
-        prestige = loadPrestige()
-        snapshot = snapshot()
+        prestige = coordinator.loadState()
+        snapshot = coordinator.snapshot(now())
         Gdx.input.inputProcessor = input
-        if (prestige.pendingTransfer != null) recoverPreparedTransfer()
+        if (prestige.pendingTransfer != null) resumePreparedTransfer()
     }
 
     override fun hide() {
@@ -71,21 +63,27 @@ class PlanetTransferScreen(
 
     override fun render(delta: Float) {
         ScreenUtils.clear(BACKGROUND)
-        viewport.apply(); camera.update()
-        val layout = layout(); current = layout
+        viewport.apply()
+        camera.update()
+        val layout = layout()
+        current = layout
         shapes.projectionMatrix = camera.combined
         shapes.begin(ShapeRenderer.ShapeType.Filled)
-        shapes.color = TOP; shapes.rect(layout.top.x, layout.top.y, layout.top.width, layout.top.height)
-        shapes.color = PANEL; shapes.rect(layout.summary.x, layout.summary.y, layout.summary.width, layout.summary.height)
-        shapes.color = PANEL; shapes.rect(layout.permanent.x, layout.permanent.y, layout.permanent.width, layout.permanent.height)
+        shapes.color = TOP
+        shapes.rect(layout.top.x, layout.top.y, layout.top.width, layout.top.height)
+        shapes.color = PANEL
+        shapes.rect(layout.summary.x, layout.summary.y, layout.summary.width, layout.summary.height)
+        shapes.rect(layout.permanent.x, layout.permanent.y, layout.permanent.width, layout.permanent.height)
         drawButton(layout.primary, primaryEnabled(), LAUNCH)
         drawButton(layout.back, prestige.activePlanet == PlanetId.FERRUM_DELTA && prestige.pendingTransfer == null, BACK)
         shapes.end()
 
-        batch.projectionMatrix = camera.combined; batch.begin()
-        font.color = TEXT; small.color = MUTED
+        batch.projectionMatrix = camera.combined
+        batch.begin()
+        font.color = TEXT
+        small.color = MUTED
         font.draw(batch, "TRANSFERT PLANÉTAIRE", layout.top.x + 12f, layout.top.y + layout.top.height - 14f)
-        small.draw(batch, "Transaction reprenable · aucune duplication de Noyaux Stellaires", layout.top.x + 12f, layout.top.y + 15f)
+        small.draw(batch, "Journal atomique · reprise automatique · aucun doublon", layout.top.x + 12f, layout.top.y + 15f)
         font.draw(batch, planetLine(), layout.summary.x + 12f, layout.summary.y + layout.summary.height - 14f)
         small.draw(batch, requirementLine(), layout.summary.x + 12f, layout.summary.y + layout.summary.height - 40f)
         small.draw(batch, veteranLine(), layout.summary.x + 12f, layout.summary.y + 18f)
@@ -123,159 +121,118 @@ class PlanetTransferScreen(
     }
 
     private fun veteranLine(): String {
-        val veteran = prestige.veteranRobot ?: snapshot.robots.maxByOrNull { it.masteryPoints }?.let { VeteranRobotSnapshot.from(it) }
-        return veteran?.let { "${it.displayName} · ${it.serialNumber} · maîtrise ${it.masteryPoints}" } ?: "Aucun robot transférable"
+        val veteran: VeteranRobotSnapshot? = prestige.veteranRobot
+            ?: snapshot.robots.maxByOrNull { it.masteryPoints }?.let(VeteranRobotSnapshot::from)
+        return veteran?.let { "${it.displayName} · ${it.serialNumber} · maîtrise ${it.masteryPoints}" }
+            ?: "Aucun robot transférable"
     }
 
     private fun touch(point: Vector2) {
         val layout = current ?: return
         when {
-            layout.primary.contains(point) && primaryEnabled() -> {
-                when {
-                    prestige.pendingTransfer != null -> recoverPreparedTransfer()
-                    prestige.activePlanet == PlanetId.CRYOS_IX -> onCryosReady()
-                    else -> prepareTransfer()
-                }
+            layout.primary.contains(point) && primaryEnabled() -> when {
+                prestige.pendingTransfer != null -> resumePreparedTransfer()
+                prestige.activePlanet == PlanetId.CRYOS_IX -> onCryosReady()
+                else -> prepareTransfer()
             }
-            layout.back.contains(point) && prestige.activePlanet == PlanetId.FERRUM_DELTA && prestige.pendingTransfer == null -> onFerrumBack()
+            layout.back.contains(point) && prestige.activePlanet == PlanetId.FERRUM_DELTA && prestige.pendingTransfer == null ->
+                onFerrumBack()
         }
     }
 
     private fun prepareTransfer() {
-        when (val result = engine.prepareTransfer(prestige, snapshot, now())) {
-            is PrestigeCommandResult.Rejected -> {
-                message = reject(result.code); services.haptic.warning()
-            }
-            is PrestigeCommandResult.Applied -> {
-                if (!savePrestige(result.state)) {
-                    message = "Préparation non enregistrée · aucun état réinitialisé"
-                    services.haptic.warning(); return
-                }
+        handle(coordinator.prepareAndCommit(prestige, snapshot, now()))
+    }
+
+    private fun resumePreparedTransfer() {
+        handle(coordinator.resumePrepared(prestige, now()))
+    }
+
+    private fun handle(result: PlanetTransferCoordinationResult) {
+        when (result) {
+            is PlanetTransferCoordinationResult.Committed -> {
                 prestige = result.state
-                message = "Transfert préparé · réinitialisation atomique en cours"
-                recoverPreparedTransfer()
+                snapshot = coordinator.snapshot(now())
+                message = "Transfert terminé · 3 Noyaux Stellaires · Cryos IX disponible"
+                services.haptic.success()
+            }
+            is PlanetTransferCoordinationResult.Pending -> {
+                prestige = result.state
+                message = pendingMessage(result.transaction)
+                services.haptic.warning()
+            }
+            is PlanetTransferCoordinationResult.Rejected -> {
+                prestige = result.state
+                message = reject(result.code)
+                services.haptic.warning()
             }
         }
     }
 
-    private fun recoverPreparedTransfer() {
-        val pending = prestige.pendingTransfer ?: return
-        // Le slot PREPARED est la source de vérité. Ces opérations sont toutes idempotentes.
-        services.save.clear("primary")
-        services.save.clear(SectorProgressCodec.SLOT_ID)
-        services.save.clear(StrategyStateCodec.SLOT_ID)
-        services.save.clear(RobotFleetCodec.SLOT_ID)
-        services.save.clear("meteor_event")
-
-        val cryosPayload = services.save.loadLatest(CryosIxStateCodec.SLOT_ID)
-        if (cryosPayload == null) {
-            val initial = fr.solremi.minerspace.domain.cryos.CryosIxEngine(
-                fr.solremi.minerspace.data.cryos.CryosIxContentFactory.create(),
-            ).initialState(pending.veteranRobot.id)
-            if (services.save.save(cryosCodec.encode(initial, "1.0.0", now())) != SaveWriteStatus.WRITTEN) {
-                message = "État Cryos non écrit · reprise automatique au prochain lancement"
-                services.haptic.warning(); return
-            }
+    private fun pendingMessage(transaction: SaveTransactionResult): String {
+        val slot = transaction.failedSlotId?.let { " · slot $it" }.orEmpty()
+        return when (transaction.status) {
+            SaveTransactionStatus.PREPARE_FAILED -> "Journal non écrit · aucun état local modifié$slot"
+            SaveTransactionStatus.PENDING -> "Transfert sécurisé mais incomplet · reprise automatique$slot"
+            SaveTransactionStatus.BUSY -> "Une autre transaction locale doit être terminée"
+            SaveTransactionStatus.CORRUPT -> "Journal de transaction illisible · redémarrage requis"
+            SaveTransactionStatus.NO_PENDING -> "Aucun transfert en attente"
+            SaveTransactionStatus.COMMITTED -> "Transfert terminé"
         }
-
-        val reconciled = engine.reconcilePrepared(prestige) as? PrestigeCommandResult.Applied ?: return
-        if (!savePrestige(reconciled.state)) {
-            message = "Acquis permanents en attente · reprise automatique"
-            services.haptic.warning(); return
-        }
-        prestige = reconciled.state
-        val finalized = engine.finalizeTransfer(prestige) as? PrestigeCommandResult.Applied ?: return
-        if (!savePrestige(finalized.state)) {
-            message = "Clôture en attente · aucun doublon possible"
-            services.haptic.warning(); return
-        }
-        prestige = finalized.state
-        message = "Transfert terminé · 3 Noyaux Stellaires · Cryos IX disponible"
-        services.haptic.success()
     }
-
-    private fun snapshot(): PrestigeSnapshot {
-        val sectors = runCatching {
-            services.save.loadLatest(SectorProgressCodec.SLOT_ID)?.let(sectorCodec::decode)
-        }.getOrNull()
-        val progression = runCatching {
-            services.save.loadLatest(ProgressionStateCodec.SLOT_ID)?.let(progressionCodec::decode)
-        }.getOrNull()
-        val narrative = runCatching {
-            services.save.loadLatest(NarrativeStateCodec.SLOT_ID)?.let(narrativeCodec::decode)
-        }.getOrNull()
-        val strategy = runCatching {
-            services.save.loadLatest(StrategyStateCodec.SLOT_ID)?.let(strategyCodec::decode)
-        }.getOrNull()
-        val robots = loadRobots()
-        val bonuses = linkedSetOf<GameId>()
-        strategy?.activeSpecialization?.let { bonuses += specializationBonus(it) }
-        if (strategy?.modules?.isNotEmpty() == true) bonuses += GameId.of("bonus_ferrum_modules")
-        return PrestigeSnapshot(
-            launchShipyardUnlocked = sectors?.unlockedSectorIds?.contains(LAUNCH_SHIPYARD) == true,
-            discoveredCodexEntryIds = progression?.discoveredCodexEntryIds.orEmpty(),
-            archiveIds = narrative?.let { it.readTransmissionIds + it.resolvedChapterIds }.orEmpty(),
-            permanentBonusIds = bonuses,
-            robots = robots.robots.values,
-        )
-    }
-
-    private fun loadRobots(): RobotAutomationState {
-        val initial = robotEngine.initialState(now())
-        val payload = services.save.loadLatest(RobotFleetCodec.SLOT_ID) ?: return initial
-        return runCatching { robotEngine.normalize(robotCodec.decode(payload), now()) }.getOrElse { initial }
-    }
-
-    private fun loadPrestige(): PrestigeState {
-        val payload = services.save.loadLatest(PrestigeStateCodec.SLOT_ID) ?: return engine.initialState()
-        return runCatching { engine.normalize(prestigeCodec.decode(payload)) }.getOrElse { engine.initialState() }
-    }
-
-    private fun savePrestige(value: PrestigeState): Boolean =
-        services.save.save(prestigeCodec.encode(value, now())) == SaveWriteStatus.WRITTEN
-
-    private fun specializationBonus(value: SpecializationId): GameId =
-        GameId.of("bonus_specialization_${value.name.lowercase()}")
 
     private fun reject(code: String): String = when (code) {
         "launch_shipyard_locked" -> "Ouvrez le chantier de départ final"
         "veteran_robot_required" -> "Un robot doit atteindre 6 000 points de maîtrise"
+        "transfer_already_prepared" -> "Un transfert est déjà en attente"
+        "source_planet_not_active" -> "Ferrum Delta n’est plus la planète active"
+        "no_pending_transfer" -> "Aucun transfert à reprendre"
         else -> code
     }
 
     private fun layout(): Layout {
-        val w = viewport.worldWidth; val h = viewport.worldHeight
-        val sx = w / Gdx.graphics.width.coerceAtLeast(1); val sy = h / Gdx.graphics.height.coerceAtLeast(1)
-        val left = Gdx.graphics.safeInsetLeft * sx + 8f
-        val right = max(left + 1f, w - Gdx.graphics.safeInsetRight * sx - 8f)
-        val bottom = Gdx.graphics.safeInsetBottom * sy + 8f
-        val top = max(bottom + 1f, h - Gdx.graphics.safeInsetTop * sy - 8f)
+        val width = viewport.worldWidth
+        val height = viewport.worldHeight
+        val scaleX = width / Gdx.graphics.width.coerceAtLeast(1)
+        val scaleY = height / Gdx.graphics.height.coerceAtLeast(1)
+        val left = Gdx.graphics.safeInsetLeft * scaleX + 8f
+        val right = max(left + 1f, width - Gdx.graphics.safeInsetRight * scaleX - 8f)
+        val bottom = Gdx.graphics.safeInsetBottom * scaleY + 8f
+        val top = max(bottom + 1f, height - Gdx.graphics.safeInsetTop * scaleY - 8f)
         val topBar = Rectangle(left, top - 52f, right - left, 52f)
-        val buttonsY = bottom
-        val back = Rectangle(right - 88f, buttonsY, 88f, 48f)
-        val primary = Rectangle(back.x - 8f - 132f, buttonsY, 132f, 48f)
+        val back = Rectangle(right - 88f, bottom, 88f, 48f)
+        val primary = Rectangle(back.x - 8f - 132f, bottom, 132f, 48f)
         val message = Rectangle(left, bottom, primary.x - left - 8f, 48f)
         val panelBottom = bottom + 56f
         val panelTop = topBar.y - 8f
         val gap = 8f
-        val width = (right - left - gap) / 2f
+        val panelWidth = (right - left - gap) / 2f
         return Layout(
-            topBar,
-            Rectangle(left, panelBottom, width, panelTop - panelBottom),
-            Rectangle(left + width + gap, panelBottom, width, panelTop - panelBottom),
-            message,
-            primary,
-            back,
+            top = topBar,
+            summary = Rectangle(left, panelBottom, panelWidth, panelTop - panelBottom),
+            permanent = Rectangle(left + panelWidth + gap, panelBottom, panelWidth, panelTop - panelBottom),
+            message = message,
+            primary = primary,
+            back = back,
         )
     }
 
     private fun drawButton(rect: Rectangle, enabled: Boolean, accent: Color) {
-        shapes.color = if (enabled) BUTTON else DISABLED; shapes.rect(rect.x, rect.y, rect.width, rect.height)
-        shapes.color = if (enabled) accent else GRID; shapes.rect(rect.x, rect.y, rect.width, 4f)
+        shapes.color = if (enabled) BUTTON else DISABLED
+        shapes.rect(rect.x, rect.y, rect.width, rect.height)
+        shapes.color = if (enabled) accent else GRID
+        shapes.rect(rect.x, rect.y, rect.width, 4f)
     }
 
     private fun now(): Long = services.clock.nowEpochMillis().coerceAtLeast(0L)
-    override fun dispose() { hide(); shapes.dispose(); batch.dispose(); font.dispose(); small.dispose() }
+
+    override fun dispose() {
+        hide()
+        shapes.dispose()
+        batch.dispose()
+        font.dispose()
+        small.dispose()
+    }
 
     private data class Layout(
         val top: Rectangle,
@@ -287,7 +244,6 @@ class PlanetTransferScreen(
     )
 
     private companion object {
-        val LAUNCH_SHIPYARD: GameId = GameId.of("sector_launch_shipyard")
         val BACKGROUND = Color(.008f, .014f, .025f, 1f)
         val TOP = Color(.05f, .075f, .12f, 1f)
         val PANEL = Color(.055f, .10f, .15f, .96f)

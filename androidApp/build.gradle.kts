@@ -4,6 +4,8 @@ plugins {
 
 val natives by configurations.creating
 val generatedNatives = layout.buildDirectory.dir("generated/minerSpaceNatives")
+val appVersionName = providers.gradleProperty("MINER_SPACE_VERSION").get()
+val appVersionCode = providers.gradleProperty("MINER_SPACE_VERSION_CODE").map { it.toInt() }.get()
 
 fun releaseValue(name: String) = providers.gradleProperty(name).orElse(providers.environmentVariable(name))
 
@@ -32,8 +34,8 @@ android {
         applicationId = "fr.solremi.minerspace"
         minSdk = 26
         targetSdk = 36
-        versionCode = 100
-        versionName = "1.0.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         manifestPlaceholders["ADMOB_APP_ID"] = testAdmobAppId
         resValue("string", "admob_rewarded_unit_id", testAdmobRewardedUnitId)
         resValue("string", "privacy_policy_url", "local://legal/privacy-policy-fr.md")
@@ -90,6 +92,12 @@ android {
         buildConfig = true
     }
 
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+        checkDependencies = true
+    }
+
     packaging {
         resources.excludes += setOf(
             "META-INF/DEPENDENCIES",
@@ -127,8 +135,8 @@ val validateReleaseConfiguration by tasks.registering {
         if (!admobRewardedUnitId.isPresent || admobRewardedUnitId.get() == testAdmobRewardedUnitId) errors += "A production ADMOB_REWARDED_UNIT_ID is required."
         if (!privacyPolicyUrl.isPresent || !privacyPolicyUrl.get().startsWith("https://")) errors += "PRIVACY_POLICY_URL must be a published HTTPS URL."
         if (!supportEmail.isPresent || !supportEmail.get().contains('@')) errors += "SUPPORT_EMAIL must be configured."
-        if ((android.defaultConfig.versionCode ?: 0) < 100) errors += "versionCode must be at least 100 for 1.0."
-        if (android.defaultConfig.versionName != "1.0.0") errors += "versionName must be 1.0.0."
+        if ((android.defaultConfig.versionCode ?: 0) != appVersionCode) errors += "versionCode must match MINER_SPACE_VERSION_CODE."
+        if (android.defaultConfig.versionName != appVersionName) errors += "versionName must match MINER_SPACE_VERSION."
         check(errors.isEmpty()) { errors.joinToString(separator = "\n") }
     }
 }
