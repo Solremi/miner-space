@@ -4,7 +4,7 @@ import android.content.ComponentCallbacks2
 import android.os.Bundle
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
-import fr.solremi.minerspace.android.platform.AndroidGameLogger
+import fr.solremi.minerspace.android.platform.AndroidDiagnosticLogger
 import fr.solremi.minerspace.android.platform.AndroidPlatformServices
 import fr.solremi.minerspace.android.platform.LocalCrashReporter
 import fr.solremi.minerspace.game.MinerSpaceGame
@@ -26,7 +26,7 @@ class MainActivity : AndroidApplication() {
         initialize(
             MinerSpaceGame(
                 services = platformServices.services,
-                logger = AndroidGameLogger,
+                logger = AndroidDiagnosticLogger,
             ),
             configuration,
         )

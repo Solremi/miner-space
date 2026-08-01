@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+errors: list[str] = []
 
 
 def read(relative: str) -> str:
@@ -16,8 +17,6 @@ def read(relative: str) -> str:
         return ""
     return path.read_text(encoding="utf-8")
 
-
-errors: list[str] = []
 
 if (ROOT / ".github" / "workflows").exists():
     errors.append("workflow directory is forbidden for this project")
@@ -54,7 +53,12 @@ for relative, required in screen_requirements.items():
     for token in required:
         if token not in content:
             errors.append(f"{relative} does not use {token}")
-    for legacy in ("saveMain(oldMain)", "saveMain(nextMain)) {", "saveMain(nextMain);", "saveMain(nextMain) &&"):
+    for legacy in (
+        "saveMain(oldMain)",
+        "saveMain(nextMain)) {",
+        "saveMain(nextMain);",
+        "saveMain(nextMain) &&",
+    ):
         if legacy in content:
             errors.append(f"legacy manual rollback remains in {relative}: {legacy}")
 
@@ -89,9 +93,21 @@ android_services = read(
     "androidApp/src/main/kotlin/fr/solremi/minerspace/android/platform/"
     "AndroidPlatformServices.kt"
 )
-for token in ("CoalescingSaveService", "deferredSave = save", "save.flush("):
+for token in (
+    "CoalescingSaveService",
+    "deferredSave = save",
+    "save.flush(",
+    "logger = AndroidDiagnosticLogger",
+    "AndroidAssetContentRepository(activity, AndroidDiagnosticLogger)",
+):
     if token not in android_services:
-        errors.append(f"Android save integration missing: {token}")
+        errors.append(f"Android save or diagnostics integration missing: {token}")
+
+main_activity = read(
+    "androidApp/src/main/kotlin/fr/solremi/minerspace/android/MainActivity.kt"
+)
+if "logger = AndroidDiagnosticLogger" not in main_activity:
+    errors.append("MinerSpaceGame is not using the structured Android diagnostic logger")
 
 if errors:
     print("SOURCE SAFETY CHECK: FAILED", file=sys.stderr)

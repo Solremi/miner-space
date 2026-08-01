@@ -13,8 +13,6 @@ import fr.solremi.minerspace.domain.presentation.FeedbackKind
 import fr.solremi.minerspace.domain.services.AnalyticsService
 import fr.solremi.minerspace.domain.services.AudioService
 import fr.solremi.minerspace.domain.services.ClockService
-import fr.solremi.minerspace.domain.services.ConsentService
-import fr.solremi.minerspace.domain.services.ConsentState
 import fr.solremi.minerspace.domain.services.ContentRepository
 import fr.solremi.minerspace.domain.services.GameServices
 import fr.solremi.minerspace.domain.services.HapticService
@@ -24,7 +22,6 @@ import fr.solremi.minerspace.domain.services.LifecycleState
 import fr.solremi.minerspace.domain.services.NotificationRequest
 import fr.solremi.minerspace.domain.services.NotificationService
 import fr.solremi.minerspace.domain.services.RemoteConfigService
-import fr.solremi.minerspace.domain.services.RewardedAdsService
 import fr.solremi.minerspace.domain.services.SoundCue
 import fr.solremi.minerspace.game.presentation.GameFeedbackBus
 import fr.solremi.minerspace.shared.GameLogger
@@ -55,9 +52,9 @@ class AndroidPlatformServices(private val activity: Activity) {
         notifications = DisabledNotificationService,
         lifecycle = lifecycle,
         analytics = DisabledAnalyticsService,
-        content = AndroidAssetContentRepository(activity, AndroidGameLogger),
+        content = AndroidAssetContentRepository(activity, AndroidDiagnosticLogger),
         remoteConfig = LocalRemoteConfigService,
-        logger = AndroidGameLogger,
+        logger = AndroidDiagnosticLogger,
         deferredSave = save,
     )
 
@@ -74,7 +71,10 @@ class AndroidPlatformServices(private val activity: Activity) {
         services.audio.pause()
         lifecycle.update(LifecycleState.BACKGROUND)
         if (!save.flush(BACKGROUND_FLUSH_TIMEOUT_MILLIS)) {
-            AndroidGameLogger.warning(TAG, "Deferred saves did not fully flush before background.")
+            AndroidDiagnosticLogger.warning(
+                TAG,
+                "Deferred saves did not fully flush before background.",
+            )
         }
     }
 
