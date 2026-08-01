@@ -4,30 +4,23 @@
 
 - build et version reproductibles ;
 - transactions multi-slots et rollback des actions ;
-- coordinateurs production, exploration, transfert, météorites, retour hors ligne et publicités contextuelles ;
-- catalogue typé de textes et codecs versionnés communs ;
-- tests paysage et Android ;
-- registre d’assets à références comptées ;
-- groupes de durée de vie `CORE_UI`, `FERRUM`, `CRYOS`, `FRONTIER`, `ROBOTS` et `AUDIO` ;
-- annulation du chargement ou déchargement lorsque la dernière référence disparaît ;
-- estimation mémoire par asset et par ensemble chargé ;
-- budgets LOW, MEDIUM, HIGH et profil appareil à faible mémoire ;
-- limites explicites pour robots visibles, particules, traînées, modèles, textures et shaders ;
-- moniteur circulaire de temps de frame sans allocation pendant `record()`.
+- coordinateurs gameplay et publicités contextuelles ;
+- catalogue de textes, codecs communs, tests paysage et Android ;
+- registre d’assets, budgets de performance et mesure de frames ;
+- diagnostics structurés à capacité fixe ;
+- logger Android décoré sans modifier les appels métier ;
+- empreinte stable du message plutôt que conservation du texte brut ;
+- seule la classe d’exception est retenue, jamais son message ;
+- ajout des 64 derniers diagnostics au rapport de crash local ;
+- aucun envoi distant, aucun identifiant joueur et aucun contenu de sauvegarde.
 
-## Intégration des futurs assets
+## Format d’un diagnostic local
 
-Les fichiers ne doivent pas être chargés directement depuis un écran. Chaque fichier final recevra un `GameAssetDescriptor` reprenant l’identifiant et le chemin définis dans `docs/asset-production-pack.md`. Un écran acquiert son groupe à l’entrée et le libère à la sortie.
+```text
+horodatage | niveau | tag technique | empreinte du message | classe d’exception éventuelle
+```
 
-Le backend concret devra :
-
-- charger les textures, sons et musiques de manière asynchrone ;
-- enregistrer un chargeur GLB compatible avant l’ajout des modèles `.glb` ;
-- annuler un fichier encore en file lorsque `unload()` est appelé ;
-- ne jamais dépasser `RuntimePerformanceBudget.assetMemoryBudgetBytes` ;
-- choisir le profil faible mémoire lorsque l’appareil le nécessite.
-
-Aucun son, modèle, texture ou VFX factice n’a été ajouté.
+L’empreinte permet de rapprocher deux erreurs identiques sans stocker un chemin local, une valeur d’économie ou une chaîne fournie par l’utilisateur. Le rapport reste dans `files/crash-reports/last-crash.txt` et peut être supprimé avec les données de l’application.
 
 ## Priorités
 
@@ -38,6 +31,6 @@ Aucun son, modèle, texture ou VFX factice n’a été ajouté.
 5. **Terminé** — codecs versionnés communs.
 6. **Terminé** — tests interface et Android.
 7. **Terminé** — publicités contextuelles.
-8. **Terminé** — budgets de performance et gestion de durée de vie des futurs assets.
-9. Uniformiser les diagnostics locaux.
+8. **Terminé** — performance et futurs assets.
+9. **Terminé** — diagnostics locaux structurés et privés.
 10. Renforcer la validation release.

@@ -36,9 +36,9 @@ class AndroidPlatformServices(private val activity: Activity) {
         notifications = DisabledNotificationService,
         lifecycle = lifecycle,
         analytics = DisabledAnalyticsService,
-        content = AndroidAssetContentRepository(activity, AndroidGameLogger),
+        content = AndroidAssetContentRepository(activity, AndroidDiagnosticLogger),
         remoteConfig = LocalRemoteConfigService,
-        logger = AndroidGameLogger,
+        logger = AndroidDiagnosticLogger,
     )
 
     fun requestConsentAtLaunch() { consent.requestIfNeeded { } }

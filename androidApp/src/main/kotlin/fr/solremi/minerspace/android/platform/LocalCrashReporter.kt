@@ -28,6 +28,23 @@ internal class LocalCrashReporter private constructor(
                         output.println("causeAt=${frame.className}.${frame.methodName}:${frame.lineNumber}")
                     }
                 }
+                val diagnostics = AndroidDiagnosticStore.snapshot().takeLast(64)
+                output.println("diagnosticCount=${diagnostics.size}")
+                diagnostics.forEach { event ->
+                    output.print("diagnostic=")
+                    output.print(event.timestampEpochMillis)
+                    output.print('|')
+                    output.print(event.level.name)
+                    output.print('|')
+                    output.print(event.tag)
+                    output.print('|')
+                    output.print(event.code)
+                    event.exceptionClass?.let {
+                        output.print('|')
+                        output.print(it)
+                    }
+                    output.println()
+                }
             }
             report.writeText(writer.toString(), Charsets.UTF_8)
         }
@@ -39,7 +56,9 @@ internal class LocalCrashReporter private constructor(
         fun install(context: Context) {
             if (!installed.compareAndSet(false, true)) return
             val current = Thread.getDefaultUncaughtExceptionHandler()
-            Thread.setDefaultUncaughtExceptionHandler(LocalCrashReporter(context.applicationContext, current))
+            Thread.setDefaultUncaughtExceptionHandler(
+                LocalCrashReporter(context.applicationContext, current),
+            )
         }
     }
 }
