@@ -13,7 +13,9 @@
 - transfert Ferrum Delta → Cryos IX déplacé hors de l’écran vers un coordinateur testable ;
 - ouverture des secteurs atomique entre économie et exploration ;
 - logique de production, simulation et sauvegarde extraite de `ManufacturingPlanetScreen` vers `ManufacturingCoordinator` ;
-- les actions de production passent maintenant par une API indépendante de LibGDX ;
+- les actions de production sont calculées sur un état candidat, sauvegardées, puis publiées en mémoire uniquement après succès ;
+- un échec de sauvegarde annule donc réellement la vente, la collecte, le raffinage, l’assemblage ou l’installation de technologie ;
+- tests de non-mutation et de non-divergence ajoutés pour la production ;
 - routage initial isolé dans un résolveur pur et testé ;
 - erreurs de chargement importantes enregistrées au lieu d’être toutes absorbées silencieusement ;
 - Android Lint intégré aux contrôles locaux et au préflight release.
@@ -28,7 +30,7 @@
 ## Priorités en cours
 
 1. **Terminé** — extraire la production hors de `ManufacturingPlanetScreen`.
-2. Sécuriser toutes les mutations en cas d’échec de sauvegarde.
+2. **Terminé** — sécuriser les mutations en cas d’échec de sauvegarde.
 3. Étendre les transactions multi-slots aux récompenses et événements.
 4. Centraliser les textes affichés.
 5. Mutualiser les codecs versionnés.
