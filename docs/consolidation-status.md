@@ -1,36 +1,34 @@
 # Miner Space — Consolidation technique
 
-## Corrigé
+## Les dix priorités sont traitées
 
-- build et version reproductibles ;
-- transactions multi-slots et rollback des actions ;
-- coordinateurs gameplay et publicités contextuelles ;
-- catalogue de textes, codecs communs, tests paysage et Android ;
-- registre d’assets, budgets de performance et mesure de frames ;
-- diagnostics structurés à capacité fixe ;
-- logger Android décoré sans modifier les appels métier ;
-- empreinte stable du message plutôt que conservation du texte brut ;
-- seule la classe d’exception est retenue, jamais son message ;
-- ajout des 64 derniers diagnostics au rapport de crash local ;
-- aucun envoi distant, aucun identifiant joueur et aucun contenu de sauvegarde.
+1. **Production extraite de l’écran** — `ManufacturingCoordinator` possède les moteurs, l’état, la simulation et la persistance.
+2. **Rollback réel** — une action de production n’est publiée en mémoire qu’après sauvegarde réussie.
+3. **Transactions multi-slots** — transfert planétaire, secteurs, météorites et consommation publicitaire sont reprenables et idempotents.
+4. **Textes centralisés** — catalogue typé français, paramètres contrôlés et mappings de messages gameplay.
+5. **Codecs mutualisés** — lecteur, writer et collections versionnés communs, sans casser les formats existants.
+6. **Tests interface et Android** — layouts paysage compacts, zones sûres, manifeste, orientation, sauvegarde système et trafic clair.
+7. **Publicités contextuelles** — retour hors ligne et prolongation météorique avec `scopeId`, limites et consommation atomique.
+8. **Performance et futurs assets** — registre à références comptées, groupes de durée de vie, budgets qualité et moniteur de frames.
+9. **Diagnostics locaux** — tampon borné, empreintes privées et contexte technique intégré au rapport de crash local.
+10. **Validation release** — contrôle du dépôt, modèle privé de preuves et décision Go/No-Go reproductible.
 
-## Format d’un diagnostic local
+## Commandes locales
 
-```text
-horodatage | niveau | tag technique | empreinte du message | classe d’exception éventuelle
+```sh
+sh scripts/quality-check.sh
+sh scripts/device-check.sh
+sh scripts/release-readiness.sh --repository-only
+sh scripts/release-preflight.sh
+sh scripts/release-readiness.sh
 ```
 
-L’empreinte permet de rapprocher deux erreurs identiques sans stocker un chemin local, une valeur d’économie ou une chaîne fournie par l’utilisateur. Le rapport reste dans `files/crash-reports/last-crash.txt` et peut être supprimé avec les données de l’application.
+Les équivalents PowerShell sont disponibles dans `scripts/`.
 
-## Priorités
+## État réel
 
-1. **Terminé** — coordinateur de production.
-2. **Terminé** — rollback sur sauvegarde échouée.
-3. **Terminé** — transactions multi-slots.
-4. **Terminé** — catalogue de textes.
-5. **Terminé** — codecs versionnés communs.
-6. **Terminé** — tests interface et Android.
-7. **Terminé** — publicités contextuelles.
-8. **Terminé** — performance et futurs assets.
-9. **Terminé** — diagnostics locaux structurés et privés.
-10. Renforcer la validation release.
+Le dépôt possède maintenant les garde-fous nécessaires pour poursuivre le développement proprement. Les sons, musiques, modèles 3D, textures et VFX définitifs restent volontairement absents et pourront être intégrés via le registre d’assets lorsque les fichiers seront prêts.
+
+La publication reste **NO-GO** tant que les preuves externes suivantes ne sont pas complètes : clé et bundle signés, installation sur appareils, migrations réelles, matrice paysage/accessibilité, performance faible appareil, consentement, test fermé, absence de crash/ANR, politique HTTPS, visuels et formulaires Play Console.
+
+Aucun workflow, aucune CI/CD et aucun déploiement automatique n’est présent ou requis par cette consolidation.

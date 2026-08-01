@@ -21,6 +21,9 @@ if (-not $env:PRIVACY_POLICY_URL.StartsWith("https://")) {
   throw "PRIVACY_POLICY_URL must use HTTPS"
 }
 
+python (Join-Path $PSScriptRoot "release-readiness.py") --repository-only
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 & (Join-Path $PSScriptRoot "run-gradle.ps1") `
   :androidApp:validateReleaseConfiguration `
   :domain:test `

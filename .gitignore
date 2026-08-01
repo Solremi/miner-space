@@ -12,3 +12,4 @@ captures/
 Thumbs.db
 
 .gradle-bootstrap/
+release-evidence.properties
