@@ -59,4 +59,9 @@ class MainActivity : AndroidApplication() {
         if (::platformServices.isInitialized) platformServices.onBackground()
         super.onLowMemory()
     }
+
+    override fun onDestroy() {
+        if (::platformServices.isInitialized) platformServices.close()
+        super.onDestroy()
+    }
 }

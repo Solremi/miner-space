@@ -7,9 +7,25 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import fr.solremi.minerspace.data.CoalescingSaveService
 import fr.solremi.minerspace.data.FileSaveService
 import fr.solremi.minerspace.domain.presentation.FeedbackKind
-import fr.solremi.minerspace.domain.services.*
+import fr.solremi.minerspace.domain.services.AnalyticsService
+import fr.solremi.minerspace.domain.services.AudioService
+import fr.solremi.minerspace.domain.services.ClockService
+import fr.solremi.minerspace.domain.services.ConsentService
+import fr.solremi.minerspace.domain.services.ConsentState
+import fr.solremi.minerspace.domain.services.ContentRepository
+import fr.solremi.minerspace.domain.services.GameServices
+import fr.solremi.minerspace.domain.services.HapticService
+import fr.solremi.minerspace.domain.services.LifecycleObserver
+import fr.solremi.minerspace.domain.services.LifecycleService
+import fr.solremi.minerspace.domain.services.LifecycleState
+import fr.solremi.minerspace.domain.services.NotificationRequest
+import fr.solremi.minerspace.domain.services.NotificationService
+import fr.solremi.minerspace.domain.services.RemoteConfigService
+import fr.solremi.minerspace.domain.services.RewardedAdsService
+import fr.solremi.minerspace.domain.services.SoundCue
 import fr.solremi.minerspace.game.presentation.GameFeedbackBus
 import fr.solremi.minerspace.shared.GameLogger
 import java.util.concurrent.CopyOnWriteArraySet
@@ -19,6 +35,9 @@ class AndroidPlatformServices(private val activity: Activity) {
     private val lifecycle = AndroidLifecycleService()
     private val audio = AndroidAudioService()
     private val haptic = AndroidHapticService(activity, audio)
+    private val save = CoalescingSaveService(
+        FileSaveService(activity.filesDir.resolve("saves").toPath()),
+    )
     private val adPermission = AtomicBoolean(false)
     private val rewardedAds = AndroidRewardedAdsService(activity) { adPermission.get() }
     private val consent = AndroidConsentService(activity) { allowed ->
@@ -28,7 +47,7 @@ class AndroidPlatformServices(private val activity: Activity) {
 
     val services = GameServices(
         clock = AndroidClockService,
-        save = FileSaveService(activity.filesDir.resolve("saves").toPath()),
+        save = save,
         audio = audio,
         haptic = haptic,
         rewardedAds = rewardedAds,
@@ -36,21 +55,55 @@ class AndroidPlatformServices(private val activity: Activity) {
         notifications = DisabledNotificationService,
         lifecycle = lifecycle,
         analytics = DisabledAnalyticsService,
-        content = AndroidAssetContentRepository(activity, AndroidDiagnosticLogger),
+        content = AndroidAssetContentRepository(activity, AndroidGameLogger),
         remoteConfig = LocalRemoteConfigService,
-        logger = AndroidDiagnosticLogger,
+        logger = AndroidGameLogger,
+        deferredSave = save,
     )
 
-    fun requestConsentAtLaunch() { consent.requestIfNeeded { } }
-    fun onForeground() { lifecycle.update(LifecycleState.FOREGROUND); services.audio.resume() }
-    fun onBackground() { services.audio.pause(); lifecycle.update(LifecycleState.BACKGROUND) }
+    fun requestConsentAtLaunch() {
+        consent.requestIfNeeded { }
+    }
+
+    fun onForeground() {
+        lifecycle.update(LifecycleState.FOREGROUND)
+        services.audio.resume()
+    }
+
+    fun onBackground() {
+        services.audio.pause()
+        lifecycle.update(LifecycleState.BACKGROUND)
+        if (!save.flush(BACKGROUND_FLUSH_TIMEOUT_MILLIS)) {
+            AndroidGameLogger.warning(TAG, "Deferred saves did not fully flush before background.")
+        }
+    }
+
+    fun close() {
+        save.close()
+    }
+
+    private companion object {
+        const val TAG = "AndroidPlatformServices"
+        const val BACKGROUND_FLUSH_TIMEOUT_MILLIS = 1_500L
+    }
 }
 
 object AndroidGameLogger : GameLogger {
-    override fun debug(tag: String, message: String) { Log.d(tag, message) }
-    override fun info(tag: String, message: String) { Log.i(tag, message) }
-    override fun warning(tag: String, message: String, cause: Throwable?) { Log.w(tag, message, cause) }
-    override fun error(tag: String, message: String, cause: Throwable?) { Log.e(tag, message, cause) }
+    override fun debug(tag: String, message: String) {
+        Log.d(tag, message)
+    }
+
+    override fun info(tag: String, message: String) {
+        Log.i(tag, message)
+    }
+
+    override fun warning(tag: String, message: String, cause: Throwable?) {
+        Log.w(tag, message, cause)
+    }
+
+    override fun error(tag: String, message: String, cause: Throwable?) {
+        Log.e(tag, message, cause)
+    }
 }
 
 private object AndroidClockService : ClockService {
@@ -65,14 +118,18 @@ private class AndroidAudioService : AudioService {
     private var generator: ToneGenerator? = null
 
     override fun setMusicEnabled(enabled: Boolean) = Unit
-    override fun setSoundEnabled(enabled: Boolean) { soundEnabled = enabled }
+
+    override fun setSoundEnabled(enabled: Boolean) {
+        soundEnabled = enabled
+    }
 
     @Synchronized
     override fun setMasterVolume(volume: Float) {
         val normalized = volume.coerceIn(0f, 1f)
         if (this.volume == normalized) return
         this.volume = normalized
-        generator?.release(); generator = null
+        generator?.release()
+        generator = null
     }
 
     @Synchronized
@@ -89,8 +146,13 @@ private class AndroidAudioService : AudioService {
         toneGenerator().startTone(pair.first, pair.second)
     }
 
-    override fun pause() { paused = true }
-    override fun resume() { paused = false }
+    override fun pause() {
+        paused = true
+    }
+
+    override fun resume() {
+        paused = false
+    }
 
     private fun toneGenerator(): ToneGenerator = generator ?: ToneGenerator(
         AudioManager.STREAM_MUSIC,
@@ -98,10 +160,16 @@ private class AndroidAudioService : AudioService {
     ).also { generator = it }
 }
 
-private class AndroidHapticService(activity: Activity, private val audio: AudioService) : HapticService {
+private class AndroidHapticService(
+    activity: Activity,
+    private val audio: AudioService,
+) : HapticService {
     private val vibrator = activity.getSystemService(Vibrator::class.java)
     private var enabled = true
-    override fun setEnabled(enabled: Boolean) { this.enabled = enabled }
+
+    override fun setEnabled(enabled: Boolean) {
+        this.enabled = enabled
+    }
 
     override fun impact() {
         audio.play(SoundCue.INTERACTION)
@@ -123,16 +191,26 @@ private class AndroidHapticService(activity: Activity, private val audio: AudioS
 
     private fun vibrate(durationMillis: Long, amplitude: Int) {
         if (!enabled) return
-        vibrator?.vibrate(VibrationEffect.createOneShot(durationMillis, amplitude.coerceIn(1, 255)))
+        vibrator?.vibrate(
+            VibrationEffect.createOneShot(durationMillis, amplitude.coerceIn(1, 255)),
+        )
     }
 }
 
 private class AndroidLifecycleService : LifecycleService {
     private val observers = CopyOnWriteArraySet<LifecycleObserver>()
     private var state = LifecycleState.FOREGROUND
+
     override fun currentState(): LifecycleState = state
-    override fun addObserver(observer: LifecycleObserver) { observers += observer }
-    override fun removeObserver(observer: LifecycleObserver) { observers -= observer }
+
+    override fun addObserver(observer: LifecycleObserver) {
+        observers += observer
+    }
+
+    override fun removeObserver(observer: LifecycleObserver) {
+        observers -= observer
+    }
+
     fun update(newState: LifecycleState) {
         if (state == newState) return
         state = newState
@@ -160,10 +238,12 @@ private object DisabledNotificationService : NotificationService {
     override fun cancel(id: String) = Unit
     override fun cancelAll() = Unit
 }
+
 private object DisabledAnalyticsService : AnalyticsService {
     override fun event(name: String, attributes: Map<String, String>) = Unit
     override fun setEnabled(enabled: Boolean) = Unit
 }
+
 private object LocalRemoteConfigService : RemoteConfigService {
     override fun boolean(key: String, defaultValue: Boolean): Boolean = defaultValue
     override fun long(key: String, defaultValue: Long): Long = defaultValue
