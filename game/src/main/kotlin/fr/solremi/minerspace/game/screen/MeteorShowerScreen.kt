@@ -11,20 +11,14 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ExtendViewport
-import fr.solremi.minerspace.data.economy.CoreEconomyContentLoader
 import fr.solremi.minerspace.data.event.MeteorContentLoader
-import fr.solremi.minerspace.data.save.ManufacturingSnapshotCodec
+import fr.solremi.minerspace.data.event.MeteorRewardCommitResult
+import fr.solremi.minerspace.data.event.MeteorRewardCoordinator
 import fr.solremi.minerspace.data.save.MeteorEventCodec
-import fr.solremi.minerspace.domain.assembly.AssemblyState
-import fr.solremi.minerspace.domain.assembly.ManufacturingGameState
-import fr.solremi.minerspace.domain.economy.CoreEconomyEngine
 import fr.solremi.minerspace.domain.event.MeteorEventEngine
 import fr.solremi.minerspace.domain.event.MeteorEventPhase
 import fr.solremi.minerspace.domain.event.MeteorEventState
 import fr.solremi.minerspace.domain.event.MeteorFragmentKind
-import fr.solremi.minerspace.domain.event.MeteorRewardEngine
-import fr.solremi.minerspace.domain.event.MeteorRewardResult
-import fr.solremi.minerspace.domain.refining.RefiningState
 import fr.solremi.minerspace.domain.services.GameServices
 import fr.solremi.minerspace.domain.services.LifecycleObserver
 import fr.solremi.minerspace.domain.services.LifecycleState
@@ -45,17 +39,13 @@ class MeteorShowerScreen(
     private val definition = MeteorContentLoader().load(services.content)
     private val engine = MeteorEventEngine(definition)
     private val eventCodec = MeteorEventCodec()
-    private val economyDefinitions = CoreEconomyContentLoader().load(services.content)
-    private val mainCodec = ManufacturingSnapshotCodec()
-    private val rewardEngine = MeteorRewardEngine(
-        definition,
-        economyDefinitions.resources.mapValues { it.value.storageCapacity },
-    )
-    private var mainState = initialMain()
+    private val rewardCoordinator = MeteorRewardCoordinator.fromServices(services, definition)
+
     private var eventState = newEvent()
     private var lastTickMillis = 0L
     private var lastSaveMillis = 0L
     private var codexOpen = false
+    private var transactionBlocked = false
     private var message = "Touchez ou glissez sur les fragments"
     private val input = MeteorInput()
     private val lifecycle = LifecycleObserver { state ->
@@ -63,9 +53,8 @@ class MeteorShowerScreen(
     }
 
     override fun show() {
-        mainState = loadMain()
         eventState = loadOrStartEvent()
-        recoverPendingReward()
+        if (eventState.phase == MeteorEventPhase.COMMITTING) finalizeReward()
         lastTickMillis = services.clock.monotonicMillis()
         lastSaveMillis = lastTickMillis
         services.lifecycle.addObserver(lifecycle)
@@ -73,7 +62,7 @@ class MeteorShowerScreen(
     }
 
     override fun hide() {
-        saveEvent()
+        if (!transactionBlocked) saveEvent()
         services.lifecycle.removeObserver(lifecycle)
         if (Gdx.input.inputProcessor === input) Gdx.input.inputProcessor = null
     }
@@ -95,19 +84,19 @@ class MeteorShowerScreen(
 
     private fun updateEvent() {
         val now = services.clock.monotonicMillis()
-        val delta = (now - lastTickMillis).coerceIn(0L, 250L)
+        val elapsed = (now - lastTickMillis).coerceIn(0L, 250L)
         lastTickMillis = now
-        if (eventState.phase == MeteorEventPhase.ACTIVE && delta > 0L) {
-            val before = eventState
-            eventState = engine.advance(eventState, delta)
-            if (before.phase == MeteorEventPhase.ACTIVE && eventState.phase == MeteorEventPhase.SUMMARY) {
-                message = "Pluie terminée · récompenses prêtes"
-                services.haptic.success()
-                saveEvent()
-            } else if (eventState != before && now - lastSaveMillis >= AUTOSAVE_MILLIS) {
-                saveEvent()
-                lastSaveMillis = now
-            }
+        if (transactionBlocked || eventState.phase != MeteorEventPhase.ACTIVE || elapsed <= 0L) return
+
+        val before = eventState
+        eventState = engine.advance(eventState, elapsed)
+        if (before.phase == MeteorEventPhase.ACTIVE && eventState.phase == MeteorEventPhase.SUMMARY) {
+            message = "Pluie terminée · récompenses prêtes"
+            services.haptic.success()
+            saveEvent()
+        } else if (eventState != before && now - lastSaveMillis >= AUTOSAVE_MILLIS) {
+            saveEvent()
+            lastSaveMillis = now
         }
     }
 
@@ -146,9 +135,10 @@ class MeteorShowerScreen(
             val point = engine.position(fragment, eventState.elapsedActiveMillis)
             val x = play.x + point.xMillionths / NORMALIZED * play.width
             val y = play.y + point.yMillionths / NORMALIZED * play.height
-            if (x !in play.x - 30f..play.x + play.width + 30f || y !in play.y - 30f..play.y + play.height + 30f) {
-                return@forEach
-            }
+            if (x !in play.x - 30f..play.x + play.width + 30f ||
+                y !in play.y - 30f..play.y + play.height + 30f
+            ) return@forEach
+
             val rare = fragment.kind == MeteorFragmentKind.RARE
             shapes.color = if (rare) RARE_TRAIL else STANDARD_TRAIL
             shapes.rectLine(x + 30f, y + 18f, x, y, if (rare) 5f else 3f)
@@ -167,8 +157,8 @@ class MeteorShowerScreen(
         shapes.color = HUD
         shapes.rect(layout.top.x, layout.top.y, layout.top.width, layout.top.height)
         shapes.rect(layout.bottom.x, layout.bottom.y, layout.bottom.width, layout.bottom.height)
-        drawButton(layout.assist, eventState.phase == MeteorEventPhase.ACTIVE)
-        drawButton(layout.codex, true)
+        drawButton(layout.assist, eventState.phase == MeteorEventPhase.ACTIVE && !transactionBlocked)
+        drawButton(layout.codex, !transactionBlocked)
         drawButton(layout.action, true)
         shapes.end()
 
@@ -176,7 +166,12 @@ class MeteorShowerScreen(
         batch.begin()
         font.color = TEXT
         val remaining = ((definition.durationMillis - eventState.elapsedActiveMillis).coerceAtLeast(0L) + 999L) / 1_000L
-        font.draw(batch, "PLUIE MÉTÉORIQUE · ${remaining}s", layout.top.x + 12f, layout.top.y + layout.top.height - 14f)
+        font.draw(
+            batch,
+            "PLUIE MÉTÉORIQUE · ${remaining}s",
+            layout.top.x + 12f,
+            layout.top.y + layout.top.height - 14f,
+        )
         small.color = MUTED
         small.draw(
             batch,
@@ -185,10 +180,15 @@ class MeteorShowerScreen(
             layout.top.y + 15f,
         )
         small.color = TEXT
-        small.draw(batch, if (eventState.assistanceEnabled) "ASSIST. OUI" else "ASSIST. NON", layout.assist.x + 8f, layout.assist.y + 30f)
+        small.draw(
+            batch,
+            if (eventState.assistanceEnabled) "ASSIST. OUI" else "ASSIST. NON",
+            layout.assist.x + 8f,
+            layout.assist.y + 30f,
+        )
         small.draw(batch, "CODEX", layout.codex.x + 18f, layout.codex.y + 30f)
         small.draw(batch, actionLabel(), layout.action.x + 10f, layout.action.y + 30f)
-        if (eventState.phase == MeteorEventPhase.SUMMARY || eventState.phase == MeteorEventPhase.COMMITTING || eventState.phase == MeteorEventPhase.COMMITTED) {
+        if (eventState.phase != MeteorEventPhase.ACTIVE) {
             drawSummaryText(layout)
         } else {
             small.color = MUTED
@@ -209,12 +209,12 @@ class MeteorShowerScreen(
     }
 
     private fun drawCodex() {
-        val layout = layout()
+        val play = layout().play
         val panel = Rectangle(
-            layout.play.x + layout.play.width * .12f,
-            layout.play.y + layout.play.height * .10f,
-            layout.play.width * .76f,
-            layout.play.height * .80f,
+            play.x + play.width * .12f,
+            play.y + play.height * .10f,
+            play.width * .76f,
+            play.height * .80f,
         )
         shapes.projectionMatrix = camera.combined
         shapes.begin(ShapeRenderer.ShapeType.Filled)
@@ -227,17 +227,22 @@ class MeteorShowerScreen(
         batch.begin()
         font.color = TEXT
         font.draw(batch, "CODEX TEMPORAIRE", panel.x + 18f, panel.y + panel.height - 22f)
-        small.color = MUTED
         codexLine(panel, 54f, "Pluie météorique", MeteorEventEngine.CODEX_EVENT in eventState.codexEntryIds)
         codexLine(panel, 82f, "Fragment standard", MeteorEventEngine.CODEX_STANDARD in eventState.codexEntryIds)
         codexLine(panel, 110f, "Cœur météorique", MeteorEventEngine.CODEX_RARE in eventState.codexEntryIds)
+        small.color = MUTED
         small.draw(batch, "Touchez CODEX pour fermer", panel.x + 18f, panel.y + 18f)
         batch.end()
     }
 
     private fun codexLine(panel: Rectangle, offset: Float, label: String, discovered: Boolean) {
         small.color = if (discovered) TEXT else MUTED
-        small.draw(batch, (if (discovered) "DÉCOUVERT · " else "INCONNU · ") + label, panel.x + 18f, panel.y + panel.height - offset)
+        small.draw(
+            batch,
+            (if (discovered) "DÉCOUVERT · " else "INCONNU · ") + label,
+            panel.x + 18f,
+            panel.y + panel.height - offset,
+        )
     }
 
     private fun drawButton(rect: Rectangle, enabled: Boolean) {
@@ -247,124 +252,76 @@ class MeteorShowerScreen(
         shapes.rect(rect.x, rect.y, rect.width, 4f)
     }
 
-    private fun actionLabel(): String = when (eventState.phase) {
-        MeteorEventPhase.ACTIVE -> "PAUSE"
-        MeteorEventPhase.SUMMARY -> "RÉCUPÉRER"
-        MeteorEventPhase.COMMITTING -> "FINALISER"
-        MeteorEventPhase.COMMITTED -> "RETOUR"
+    private fun actionLabel(): String = when {
+        transactionBlocked -> "RELANCER"
+        eventState.phase == MeteorEventPhase.ACTIVE -> "PAUSE"
+        eventState.phase == MeteorEventPhase.SUMMARY -> "RÉCUPÉRER"
+        eventState.phase == MeteorEventPhase.COMMITTING -> "FINALISER"
+        else -> "RETOUR"
     }
 
     private fun capture(screenX: Float, screenY: Float) {
-        if (eventState.phase != MeteorEventPhase.ACTIVE || codexOpen) return
+        if (transactionBlocked || eventState.phase != MeteorEventPhase.ACTIVE || codexOpen) return
         val point = Vector2(screenX, screenY)
         viewport.unproject(point)
         val play = layout().play
         if (!play.contains(point)) return
-        val normalizedX = (((point.x - play.x) / play.width) * NORMALIZED).toInt().coerceIn(0, NORMALIZED.toInt())
-        val normalizedY = (((point.y - play.y) / play.height) * NORMALIZED).toInt().coerceIn(0, NORMALIZED.toInt())
+        val normalizedX = (((point.x - play.x) / play.width) * NORMALIZED)
+            .toInt().coerceIn(0, NORMALIZED.toInt())
+        val normalizedY = (((point.y - play.y) / play.height) * NORMALIZED)
+            .toInt().coerceIn(0, NORMALIZED.toInt())
         val result = engine.capture(eventState, normalizedX, normalizedY)
-        if (result.captured != null) {
-            eventState = result.state
-            message = if (result.captured == MeteorFragmentKind.RARE) "Cœur météorique récupéré" else "Fragment récupéré"
-            if (result.captured == MeteorFragmentKind.RARE) services.haptic.success() else services.haptic.impact()
-            saveEvent()
+        if (result.captured == null) return
+
+        eventState = result.state
+        message = if (result.captured == MeteorFragmentKind.RARE) {
+            "Cœur météorique récupéré"
+        } else {
+            "Fragment récupéré"
         }
+        if (result.captured == MeteorFragmentKind.RARE) services.haptic.success() else services.haptic.impact()
+        saveEvent()
     }
 
     private fun performAction() {
-        when (eventState.phase) {
-            MeteorEventPhase.ACTIVE -> {
+        when {
+            transactionBlocked -> finalizeReward()
+            eventState.phase == MeteorEventPhase.ACTIVE -> {
                 saveEvent()
                 onExit()
             }
-            MeteorEventPhase.SUMMARY -> prepareAndCommitReward()
-            MeteorEventPhase.COMMITTING -> recoverPendingReward()
-            MeteorEventPhase.COMMITTED -> {
+            eventState.phase == MeteorEventPhase.SUMMARY ||
+                eventState.phase == MeteorEventPhase.COMMITTING -> finalizeReward()
+            eventState.phase == MeteorEventPhase.COMMITTED -> {
                 services.save.clear(MeteorEventCodec.SLOT_ID)
                 onExit()
             }
         }
     }
 
-    private fun prepareAndCommitReward() {
-        mainState = loadMain()
-        val preparation = rewardEngine.prepare(mainState, eventState)
-        if (preparation == null) {
-            message = "Stockage des récompenses insuffisant"
-            services.haptic.warning()
-            return
-        }
-        eventState = preparation.event
-        if (!saveEvent()) {
-            eventState = eventState.copy(
-                phase = MeteorEventPhase.SUMMARY,
-                expectedStandardInventory = null,
-                expectedRareInventory = null,
-            )
-            message = "Préparation de récompense non sauvegardée"
-            services.haptic.warning()
-            return
-        }
-        if (!saveMain(preparation.state)) {
-            eventState = eventState.copy(
-                phase = MeteorEventPhase.SUMMARY,
-                expectedStandardInventory = null,
-                expectedRareInventory = null,
-            )
-            saveEvent()
-            message = "Inventaire non sauvegardé"
-            services.haptic.warning()
-            return
-        }
-        mainState = preparation.state
-        recoverPendingReward()
-    }
-
-    private fun recoverPendingReward() {
-        if (eventState.phase != MeteorEventPhase.COMMITTING) return
-        mainState = loadMain()
-        when (val result = rewardEngine.reconcile(mainState, eventState)) {
-            is MeteorRewardResult.Applied -> {
-                if (result.stateChanged && !saveMain(result.state)) {
-                    message = "Finalisation de l’inventaire en attente"
-                    services.haptic.warning()
-                    return
-                }
-                mainState = result.state
+    private fun finalizeReward() {
+        when (val result = rewardCoordinator.commit(rewardCoordinator.loadMain(), eventState)) {
+            is MeteorRewardCommitResult.Committed -> {
+                transactionBlocked = false
                 eventState = result.event
-                if (saveEvent()) {
-                    message = "Récompenses attribuées une seule fois"
-                    services.haptic.success()
-                } else {
-                    message = "Récompenses attribuées · clôture à reprendre"
-                    services.haptic.warning()
-                }
+                message = "Récompenses attribuées une seule fois"
+                services.haptic.success()
             }
-            is MeteorRewardResult.Rejected -> {
-                message = result.code
+            is MeteorRewardCommitResult.Rejected -> {
+                transactionBlocked = false
+                message = when (result.code) {
+                    "meteor_reward_storage_full" -> "Stockage des récompenses insuffisant"
+                    else -> result.code
+                }
+                services.haptic.warning()
+            }
+            is MeteorRewardCommitResult.Pending -> {
+                transactionBlocked = true
+                message = "Finalisation interrompue · relancez ou redémarrez"
                 services.haptic.warning()
             }
         }
     }
-
-    private fun initialMain(): ManufacturingGameState = ManufacturingGameState(
-        CoreEconomyEngine(economyDefinitions).initialState(),
-        RefiningState.empty(),
-        AssemblyState.empty(),
-    )
-
-    private fun loadMain(): ManufacturingGameState {
-        val payload = services.save.loadLatest() ?: return initialMain()
-        return runCatching { mainCodec.decode(payload) }.getOrElse { initialMain() }
-    }
-
-    private fun saveMain(state: ManufacturingGameState): Boolean = services.save.save(
-        mainCodec.encode(
-            state,
-            economyDefinitions.contentVersion,
-            savedAtEpochMillis = services.clock.nowEpochMillis().coerceAtLeast(0L),
-        ),
-    ) == SaveWriteStatus.WRITTEN
 
     private fun loadOrStartEvent(): MeteorEventState {
         val payload = services.save.loadLatest(MeteorEventCodec.SLOT_ID)
@@ -372,6 +329,8 @@ class MeteorShowerScreen(
             val restored = runCatching {
                 require(payload.contentVersion == definition.contentVersion)
                 eventCodec.decode(payload)
+            }.onFailure {
+                services.logger.warning(TAG, "Meteor event save could not be decoded.", it)
             }.getOrNull()
             if (restored != null && restored.phase != MeteorEventPhase.COMMITTED) return restored
         }
@@ -380,16 +339,27 @@ class MeteorShowerScreen(
 
     private fun newEvent(): MeteorEventState {
         val now = services.clock.nowEpochMillis().coerceAtLeast(1L)
-        return engine.start("meteor_$now", seed = now xor services.clock.monotonicMillis(), assistanceEnabled = true)
+        return engine.start(
+            eventId = "meteor_$now",
+            seed = now xor services.clock.monotonicMillis(),
+            assistanceEnabled = true,
+        )
     }
 
-    private fun saveEvent(): Boolean = services.save.save(
-        eventCodec.encode(
-            eventState,
-            definition.contentVersion,
-            services.clock.nowEpochMillis().coerceAtLeast(0L),
-        ),
-    ) == SaveWriteStatus.WRITTEN
+    private fun saveEvent(): Boolean {
+        val status = runCatching {
+            services.save.save(
+                eventCodec.encode(
+                    state = eventState,
+                    contentVersion = definition.contentVersion,
+                    savedAtEpochMillis = services.clock.nowEpochMillis().coerceAtLeast(0L),
+                ),
+            )
+        }.onFailure {
+            services.logger.error(TAG, "Unable to persist meteor event.", it)
+        }.getOrElse { SaveWriteStatus.FAILED }
+        return status == SaveWriteStatus.WRITTEN
+    }
 
     private fun layout(): Layout {
         val width = viewport.worldWidth
@@ -424,13 +394,13 @@ class MeteorShowerScreen(
             viewport.unproject(point)
             val layout = layout()
             when {
-                layout.assist.contains(point) && eventState.phase == MeteorEventPhase.ACTIVE -> {
+                layout.assist.contains(point) && eventState.phase == MeteorEventPhase.ACTIVE && !transactionBlocked -> {
                     eventState = engine.toggleAssistance(eventState)
                     message = if (eventState.assistanceEnabled) "Assistance activée" else "Assistance désactivée"
                     saveEvent()
                     services.haptic.impact()
                 }
-                layout.codex.contains(point) -> {
+                layout.codex.contains(point) && !transactionBlocked -> {
                     codexOpen = !codexOpen
                     services.haptic.impact()
                 }
@@ -456,6 +426,7 @@ class MeteorShowerScreen(
     )
 
     private companion object {
+        const val TAG = "MeteorShowerScreen"
         const val NORMALIZED = 1_000_000f
         const val AUTOSAVE_MILLIS = 2_000L
         val BACKGROUND = Color(.004f, .008f, .025f, 1f)
