@@ -22,9 +22,7 @@ data class GameAssetDescriptor(
     }
 }
 
-class GameAssetCatalog(
-    descriptors: Collection<GameAssetDescriptor>,
-) {
+class GameAssetCatalog(descriptors: Collection<GameAssetDescriptor>) {
     val byId: Map<String, GameAssetDescriptor> = descriptors.associateBy { it.id }
     val byGroup: Map<AssetGroup, List<GameAssetDescriptor>> = descriptors.groupBy { it.group }
     val estimatedBytes: Long = descriptors.sumOf { it.estimatedBytes }
@@ -42,36 +40,48 @@ class GameAssetCatalog(
 interface GameAssetBackend {
     fun queue(descriptor: GameAssetDescriptor)
     fun isLoaded(descriptor: GameAssetDescriptor): Boolean
-    /** Must cancel a queued load or unload an already loaded resource. */
     fun unload(descriptor: GameAssetDescriptor)
     fun update(): Boolean
+    fun progress(): Float = if (update()) 1f else 0f
     fun dispose()
 }
+
+class AssetBudgetExceededException(
+    val requestedBytes: Long,
+    val budgetBytes: Long,
+) : IllegalStateException("Asset budget exceeded: requested=$requestedBytes budget=$budgetBytes")
 
 class ReferenceCountedAssetStore(
     private val catalog: GameAssetCatalog,
     private val backend: GameAssetBackend,
+    private val memoryBudgetBytes: () -> Long = { Long.MAX_VALUE },
 ) {
     private val references = linkedMapOf<String, Int>()
 
     fun acquireGroup(group: AssetGroup) {
-        catalog.group(group).forEach(::acquire)
+        val descriptors = catalog.group(group)
+        val newlyReferenced = descriptors.filter { referenceCount(it.id) == 0 }
+        val projected = Math.addExact(loadedEstimatedBytes(), newlyReferenced.sumOf { it.estimatedBytes })
+        requireWithinBudget(projected)
+        descriptors.forEach(::acquire)
     }
 
     fun releaseGroup(group: AssetGroup) {
-        catalog.group(group).forEach(::release)
+        catalog.group(group).forEach { descriptor ->
+            if (referenceCount(descriptor.id) > 0) release(descriptor)
+        }
     }
 
     fun acquire(descriptor: GameAssetDescriptor) {
         require(catalog.byId[descriptor.id] == descriptor) { "Asset is not registered: ${descriptor.id}" }
         val count = references[descriptor.id] ?: 0
+        if (count == 0) requireWithinBudget(Math.addExact(loadedEstimatedBytes(), descriptor.estimatedBytes))
         references[descriptor.id] = count + 1
         if (count == 0) backend.queue(descriptor)
     }
 
     fun release(descriptor: GameAssetDescriptor) {
-        val count = references[descriptor.id]
-            ?: error("Asset ${descriptor.id} was released without being acquired")
+        val count = references[descriptor.id] ?: error("Asset ${descriptor.id} was released without being acquired")
         if (count <= 1) {
             references.remove(descriptor.id)
             backend.unload(descriptor)
@@ -81,11 +91,17 @@ class ReferenceCountedAssetStore(
     }
 
     fun update(): Boolean = backend.update()
+    fun progress(): Float = backend.progress().coerceIn(0f, 1f)
     fun referenceCount(assetId: String): Int = references[assetId] ?: 0
     fun loadedEstimatedBytes(): Long = references.keys.sumOf { catalog.byId.getValue(it).estimatedBytes }
 
     fun dispose() {
         references.clear()
         backend.dispose()
+    }
+
+    private fun requireWithinBudget(projectedBytes: Long) {
+        val budget = memoryBudgetBytes().coerceAtLeast(1L)
+        if (projectedBytes > budget) throw AssetBudgetExceededException(projectedBytes, budget)
     }
 }
