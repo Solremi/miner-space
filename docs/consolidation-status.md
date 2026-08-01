@@ -13,9 +13,13 @@
 - transfert Ferrum Delta → Cryos IX déplacé hors de l’écran vers un coordinateur testable ;
 - routage initial isolé dans un résolveur pur et testé ;
 - erreurs de chargement importantes enregistrées au lieu d’être toutes absorbées silencieusement ;
-- Android Lint intégré aux contrôles locaux et au préflight release.
+- Android Lint intégré aux contrôles locaux et au préflight release ;
+- chargement, validation et sauvegarde de l’exploration sortis de `SectorExplorationScreen` ;
+- ouverture de secteur enregistrée comme une transaction unique entre `primary` et `exploration` ;
+- interactions d’exploration bloquées lorsqu’une transaction doit être reprise ;
+- tests ajoutés pour l’engagement conjoint des coûts, du secteur et de la ressource rare.
 
-## Délibérément non traité dans cette passe
+## Délibérément non traité dans ces passes
 
 - musiques et sons définitifs ;
 - modèles 3D, textures, icônes et VFX finaux ;
@@ -24,7 +28,8 @@
 
 ## Dette restante
 
-- découper progressivement `ManufacturingPlanetScreen` et `SectorExplorationScreen` en contrôleurs, renderers et modèles de vue ;
+- extraire la simulation, la persistance et les actions de `ManufacturingPlanetScreen` ;
+- séparer progressivement les renderers et modèles de vue des écrans LibGDX ;
 - étendre le journal multi-slots aux autres opérations qui modifient plusieurs sauvegardes ;
 - centraliser tous les textes affichés avant une éventuelle traduction ;
 - remplacer progressivement les codecs textuels artisanaux par une sérialisation partagée et versionnée ;
