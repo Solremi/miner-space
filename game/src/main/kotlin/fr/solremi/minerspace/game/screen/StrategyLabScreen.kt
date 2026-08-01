@@ -17,6 +17,7 @@ import fr.solremi.minerspace.data.save.ManufacturingSnapshotCodec
 import fr.solremi.minerspace.data.save.RobotFleetCodec
 import fr.solremi.minerspace.data.save.StrategyStateCodec
 import fr.solremi.minerspace.data.strategy.StrategyContentLoader
+import fr.solremi.minerspace.data.transaction.StrategyStateTransactionCoordinator
 import fr.solremi.minerspace.domain.assembly.AssemblyState
 import fr.solremi.minerspace.domain.assembly.ManufacturingGameState
 import fr.solremi.minerspace.domain.economy.CoreEconomyEngine
@@ -27,7 +28,12 @@ import fr.solremi.minerspace.domain.services.GameServices
 import fr.solremi.minerspace.domain.services.LifecycleObserver
 import fr.solremi.minerspace.domain.services.LifecycleState
 import fr.solremi.minerspace.domain.services.SaveWriteStatus
-import fr.solremi.minerspace.domain.strategy.*
+import fr.solremi.minerspace.domain.strategy.OwnedModule
+import fr.solremi.minerspace.domain.strategy.SpecializationId
+import fr.solremi.minerspace.domain.strategy.StrategyAccess
+import fr.solremi.minerspace.domain.strategy.StrategyCommandResult
+import fr.solremi.minerspace.domain.strategy.StrategyEngine
+import fr.solremi.minerspace.domain.strategy.StrategyState
 import fr.solremi.minerspace.shared.GameId
 import ktx.app.KtxScreen
 import kotlin.math.max
@@ -52,6 +58,11 @@ class StrategyLabScreen(
     private val mainCodec = ManufacturingSnapshotCodec()
     private val robotCodec = RobotFleetCodec()
     private val strategyCodec = StrategyStateCodec()
+    private val transactions = StrategyStateTransactionCoordinator(
+        services.save,
+        services.clock,
+        services.logger,
+    )
 
     private var main = loadMain()
     private var robots = loadRobots()
@@ -62,8 +73,11 @@ class StrategyLabScreen(
     private var selectedRobotId = robots.robots.keys.first()
     private var message = "Comparez avant de choisir"
     private var layout: Layout? = null
+    private var persistenceBlocked = false
 
-    private val lifecycle = LifecycleObserver { if (it == LifecycleState.BACKGROUND) saveStrategy(strategy) }
+    private val lifecycle = LifecycleObserver {
+        if (it == LifecycleState.BACKGROUND && !persistenceBlocked) saveStrategy(strategy)
+    }
     private val input = object : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             val point = Vector2(screenX.toFloat(), screenY.toFloat())
@@ -79,53 +93,65 @@ class StrategyLabScreen(
         main = loadMain()
         robots = loadRobots()
         strategy = strategyEngine.normalize(loadStrategy())
+        persistenceBlocked = false
     }
 
     override fun hide() {
-        saveStrategy(strategy)
+        if (!persistenceBlocked) saveStrategy(strategy)
         services.lifecycle.removeObserver(lifecycle)
         if (Gdx.input.inputProcessor === input) Gdx.input.inputProcessor = null
     }
 
-    override fun resize(width: Int, height: Int) = viewport.update(width.coerceAtLeast(1), height.coerceAtLeast(1), true)
+    override fun resize(width: Int, height: Int) =
+        viewport.update(width.coerceAtLeast(1), height.coerceAtLeast(1), true)
 
     override fun render(delta: Float) {
         ScreenUtils.clear(BACKGROUND)
         viewport.apply()
         camera.update()
-        val l = calculateLayout()
-        layout = l
-        drawPanels(l)
-        drawText(l)
+        val current = calculateLayout()
+        layout = current
+        drawPanels(current)
+        drawText(current)
     }
 
-    private fun drawPanels(l: Layout) {
+    private fun drawPanels(layout: Layout) {
         shapes.projectionMatrix = camera.combined
         shapes.begin(ShapeRenderer.ShapeType.Filled)
         shapes.color = TOP
-        shapes.rect(l.top.x, l.top.y, l.top.width, l.top.height)
+        shapes.rect(layout.top.x, layout.top.y, layout.top.width, layout.top.height)
         shapes.color = PANEL
-        shapes.rect(l.specializationPanel.x, l.specializationPanel.y, l.specializationPanel.width, l.specializationPanel.height)
-        shapes.rect(l.modulePanel.x, l.modulePanel.y, l.modulePanel.width, l.modulePanel.height)
-        shapes.rect(l.comparisonPanel.x, l.comparisonPanel.y, l.comparisonPanel.width, l.comparisonPanel.height)
-        l.specializationButtons.forEachIndexed { index, rect ->
+        shapes.rect(
+            layout.specializationPanel.x,
+            layout.specializationPanel.y,
+            layout.specializationPanel.width,
+            layout.specializationPanel.height,
+        )
+        shapes.rect(layout.modulePanel.x, layout.modulePanel.y, layout.modulePanel.width, layout.modulePanel.height)
+        shapes.rect(
+            layout.comparisonPanel.x,
+            layout.comparisonPanel.y,
+            layout.comparisonPanel.width,
+            layout.comparisonPanel.height,
+        )
+        layout.specializationButtons.forEachIndexed { index, rect ->
             val id = SpecializationId.entries[index]
             drawButton(rect, if (id == selectedSpecialization) SELECTED else BUTTON, SPECIALIZATION_ACCENT)
         }
-        l.moduleButtons.forEachIndexed { index, rect ->
+        layout.moduleButtons.forEachIndexed { index, rect ->
             val id = strategyDefinitions.modules.keys.elementAt(index)
             drawButton(rect, if (id == selectedModuleId) SELECTED else BUTTON, MODULE_ACCENT)
         }
-        l.robotButtons.forEachIndexed { index, rect ->
+        layout.robotButtons.forEachIndexed { index, rect ->
             val id = robots.robots.keys.elementAt(index)
             drawButton(rect, if (id == selectedRobotId) SELECTED else BUTTON, ROBOT_ACCENT)
         }
-        drawButton(l.choose, BUTTON, SPECIALIZATION_ACCENT)
-        drawButton(l.craft, BUTTON, MODULE_ACCENT)
-        drawButton(l.equip, BUTTON, ROBOT_ACCENT)
-        drawButton(l.upgrade, BUTTON, MODULE_ACCENT)
-        drawButton(l.dismantle, DANGER_BUTTON, DANGER)
-        drawButton(l.back, BUTTON, ROBOT_ACCENT)
+        drawButton(layout.choose, BUTTON, SPECIALIZATION_ACCENT)
+        drawButton(layout.craft, BUTTON, MODULE_ACCENT)
+        drawButton(layout.equip, BUTTON, ROBOT_ACCENT)
+        drawButton(layout.upgrade, BUTTON, MODULE_ACCENT)
+        drawButton(layout.dismantle, DANGER_BUTTON, DANGER)
+        drawButton(layout.back, BUTTON, ROBOT_ACCENT)
         shapes.end()
     }
 
@@ -136,54 +162,88 @@ class StrategyLabScreen(
         shapes.rect(rect.x, rect.y, rect.width, 3f)
     }
 
-    private fun drawText(l: Layout) {
+    private fun drawText(layout: Layout) {
         batch.projectionMatrix = camera.combined
         batch.begin()
         font.color = TEXT
         small.color = MUTED
-        font.draw(batch, "LABORATOIRE STRATÉGIQUE", l.top.x + 12f, l.top.y + l.top.height - 12f)
-        small.draw(batch, "${main.economy.spaceDollars} SD · essai ${if (strategy.trialUsed) "utilisé" else "gratuit"}", l.top.x + 12f, l.top.y + 13f)
-        small.draw(batch, message, l.top.x + 270f, l.top.y + 13f)
+        font.draw(batch, "LABORATOIRE STRATÉGIQUE", layout.top.x + 12f, layout.top.y + layout.top.height - 12f)
+        small.draw(
+            batch,
+            "${main.economy.spaceDollars} SD · essai ${if (strategy.trialUsed) "utilisé" else "gratuit"}",
+            layout.top.x + 12f,
+            layout.top.y + 13f,
+        )
+        small.draw(batch, message, layout.top.x + 270f, layout.top.y + 13f)
 
-        font.draw(batch, "SPÉCIALISATION", l.specializationPanel.x + 10f, l.specializationPanel.y + l.specializationPanel.height - 10f)
-        l.specializationButtons.forEachIndexed { index, rect ->
-            val id = SpecializationId.entries[index]
-            small.draw(batch, specializationName(id), rect.x + 7f, rect.y + 27f)
+        font.draw(
+            batch,
+            "SPÉCIALISATION",
+            layout.specializationPanel.x + 10f,
+            layout.specializationPanel.y + layout.specializationPanel.height - 10f,
+        )
+        layout.specializationButtons.forEachIndexed { index, rect ->
+            small.draw(batch, specializationName(SpecializationId.entries[index]), rect.x + 7f, rect.y + 27f)
         }
 
-        font.draw(batch, "MODULES", l.modulePanel.x + 10f, l.modulePanel.y + l.modulePanel.height - 10f)
-        l.moduleButtons.forEachIndexed { index, rect ->
-            val id = strategyDefinitions.modules.keys.elementAt(index)
-            small.draw(batch, moduleName(id), rect.x + 6f, rect.y + 25f)
+        font.draw(
+            batch,
+            "MODULES",
+            layout.modulePanel.x + 10f,
+            layout.modulePanel.y + layout.modulePanel.height - 10f,
+        )
+        layout.moduleButtons.forEachIndexed { index, rect ->
+            small.draw(batch, moduleName(strategyDefinitions.modules.keys.elementAt(index)), rect.x + 6f, rect.y + 25f)
         }
 
-        font.draw(batch, "ROBOTS", l.comparisonPanel.x + 10f, l.comparisonPanel.y + l.comparisonPanel.height - 10f)
-        l.robotButtons.forEachIndexed { index, rect ->
+        font.draw(
+            batch,
+            "ROBOTS",
+            layout.comparisonPanel.x + 10f,
+            layout.comparisonPanel.y + layout.comparisonPanel.height - 10f,
+        )
+        layout.robotButtons.forEachIndexed { index, rect ->
             val robot = robots.robots.values.elementAt(index)
             small.draw(batch, "${robot.family.name.take(2)} N${robot.level}", rect.x + 7f, rect.y + 24f)
         }
 
         val preview = strategyEngine.compare(strategy, selectedSpecialization)
         val current = strategyEngine.compare(strategy, strategy.activeSpecialization)
-        val x = l.comparisonPanel.x + 10f
-        var y = l.comparisonPanel.y + l.comparisonPanel.height - 82f
-        small.draw(batch, "Actuel → aperçu", x, y); y -= 18f
-        small.draw(batch, "Extraction ${percent(current.extractionMillionths)} → ${percent(preview.extractionMillionths)}", x, y); y -= 17f
-        small.draw(batch, "Raffinage ${percent(current.refiningSpeedMillionths)} → ${percent(preview.refiningSpeedMillionths)}", x, y); y -= 17f
-        small.draw(batch, "Assemblage ${percent(current.assemblySpeedMillionths)} → ${percent(preview.assemblySpeedMillionths)}", x, y); y -= 17f
+        val x = layout.comparisonPanel.x + 10f
+        var y = layout.comparisonPanel.y + layout.comparisonPanel.height - 82f
+        small.draw(batch, "Actuel → aperçu", x, y)
+        y -= 18f
+        small.draw(batch, "Extraction ${percent(current.extractionMillionths)} → ${percent(preview.extractionMillionths)}", x, y)
+        y -= 17f
+        small.draw(batch, "Raffinage ${percent(current.refiningSpeedMillionths)} → ${percent(preview.refiningSpeedMillionths)}", x, y)
+        y -= 17f
+        small.draw(batch, "Assemblage ${percent(current.assemblySpeedMillionths)} → ${percent(preview.assemblySpeedMillionths)}", x, y)
+        y -= 17f
         small.draw(batch, "Logistique ${percent(current.logisticsMillionths)} → ${percent(preview.logisticsMillionths)}", x, y)
 
         val module = strategyDefinitions.modules.getValue(selectedModuleId)
-        small.draw(batch, "Coût ${module.craftCostSpaceDollars} SD · ${module.craftInputs.entries.joinToString { "${it.value} ${short(it.key)}" }}", l.modulePanel.x + 10f, l.modulePanel.y + 58f)
+        small.draw(
+            batch,
+            "Coût ${module.craftCostSpaceDollars} SD · ${module.craftInputs.entries.joinToString { "${it.value} ${short(it.key)}" }}",
+            layout.modulePanel.x + 10f,
+            layout.modulePanel.y + 58f,
+        )
         val selectedOwned = selectedInstanceId?.let(strategy.modules::get)
-        small.draw(batch, selectedOwned?.let { "Instance ${it.instanceId} · N${it.level} · ${it.equippedRobotId?.value ?: "libre"}" } ?: "Aucune instance sélectionnée", l.modulePanel.x + 10f, l.modulePanel.y + 39f)
+        small.draw(
+            batch,
+            selectedOwned?.let {
+                "Instance ${it.instanceId} · N${it.level} · ${it.equippedRobotId?.value ?: "libre"}"
+            } ?: "Aucune instance sélectionnée",
+            layout.modulePanel.x + 10f,
+            layout.modulePanel.y + 39f,
+        )
 
-        label(l.choose, "CHOISIR")
-        label(l.craft, "FABRIQUER")
-        label(l.equip, if (selectedOwned?.equippedRobotId == null) "ÉQUIPER" else "RETIRER")
-        label(l.upgrade, "AMÉLIORER")
-        label(l.dismantle, "DÉMONTER")
-        label(l.back, "RETOUR")
+        label(layout.choose, "CHOISIR")
+        label(layout.craft, "FABRIQUER")
+        label(layout.equip, if (selectedOwned?.equippedRobotId == null) "ÉQUIPER" else "RETIRER")
+        label(layout.upgrade, "AMÉLIORER")
+        label(layout.dismantle, "DÉMONTER")
+        label(layout.back, "RETOUR")
         batch.end()
     }
 
@@ -193,34 +253,72 @@ class StrategyLabScreen(
     }
 
     private fun touch(point: Vector2) {
-        val l = layout ?: return
-        l.specializationButtons.forEachIndexed { index, rect -> if (rect.contains(point)) { selectedSpecialization = SpecializationId.entries[index]; services.haptic.impact(); return } }
-        l.moduleButtons.forEachIndexed { index, rect -> if (rect.contains(point)) { selectedModuleId = strategyDefinitions.modules.keys.elementAt(index); selectedInstanceId = strategy.modules.values.firstOrNull { it.definitionId == selectedModuleId }?.instanceId; services.haptic.impact(); return } }
-        l.robotButtons.forEachIndexed { index, rect -> if (rect.contains(point)) { selectedRobotId = robots.robots.keys.elementAt(index); services.haptic.impact(); return } }
+        if (persistenceBlocked) {
+            message = "Relancez l'application pour terminer la transaction"
+            services.haptic.warning()
+            return
+        }
+        val current = layout ?: return
+        current.specializationButtons.forEachIndexed { index, rect ->
+            if (rect.contains(point)) {
+                selectedSpecialization = SpecializationId.entries[index]
+                services.haptic.impact()
+                return
+            }
+        }
+        current.moduleButtons.forEachIndexed { index, rect ->
+            if (rect.contains(point)) {
+                selectedModuleId = strategyDefinitions.modules.keys.elementAt(index)
+                selectedInstanceId = strategy.modules.values
+                    .firstOrNull { it.definitionId == selectedModuleId }
+                    ?.instanceId
+                services.haptic.impact()
+                return
+            }
+        }
+        current.robotButtons.forEachIndexed { index, rect ->
+            if (rect.contains(point)) {
+                selectedRobotId = robots.robots.keys.elementAt(index)
+                services.haptic.impact()
+                return
+            }
+        }
         when {
-            l.choose.contains(point) -> choose()
-            l.craft.contains(point) -> craft()
-            l.equip.contains(point) -> equipOrUnequip()
-            l.upgrade.contains(point) -> upgrade()
-            l.dismantle.contains(point) -> dismantle()
-            l.back.contains(point) -> onBack()
+            current.choose.contains(point) -> choose()
+            current.craft.contains(point) -> craft()
+            current.equip.contains(point) -> equipOrUnequip()
+            current.upgrade.contains(point) -> upgrade()
+            current.dismantle.contains(point) -> dismantle()
+            current.back.contains(point) -> onBack()
         }
     }
 
-    private fun choose() = applyStrategyResult(strategyEngine.chooseSpecialization(strategy, selectedSpecialization, access()))
-    private fun craft() = applyStrategyResult(strategyEngine.craft(strategy, selectedModuleId, access()))
+    private fun choose() = applyStrategyResult(
+        strategyEngine.chooseSpecialization(strategy, selectedSpecialization, access()),
+    )
+
+    private fun craft() = applyStrategyResult(
+        strategyEngine.craft(strategy, selectedModuleId, access()),
+    )
+
     private fun upgrade() {
         val id = selectedInstanceId ?: return reject("Fabriquez d'abord ce module")
         applyStrategyResult(strategyEngine.upgrade(strategy, id, access()))
     }
+
     private fun dismantle() {
         val id = selectedInstanceId ?: return reject("Aucune instance")
         applyStrategyResult(strategyEngine.dismantle(strategy, id))
     }
+
     private fun equipOrUnequip() {
         val id = selectedInstanceId ?: return reject("Aucune instance")
         val owned = strategy.modules.getValue(id)
-        val result = if (owned.equippedRobotId == null) strategyEngine.equip(strategy, id, selectedRobotId, access()) else strategyEngine.unequip(strategy, id)
+        val result = if (owned.equippedRobotId == null) {
+            strategyEngine.equip(strategy, id, selectedRobotId, access())
+        } else {
+            strategyEngine.unequip(strategy, id)
+        }
         applyStrategyResult(result)
     }
 
@@ -228,57 +326,93 @@ class StrategyLabScreen(
         when (result) {
             is StrategyCommandResult.Rejected -> reject(rejectionText(result.code))
             is StrategyCommandResult.Applied -> {
-                val oldMain = main
-                val oldStrategy = strategy
-                val transaction = result.transaction
                 val inventory = main.economy.inventory.toMutableMap()
-                transaction.inventoryDeltas.forEach { (id, delta) ->
+                result.transaction.inventoryDeltas.forEach { (id, delta) ->
                     val next = Math.addExact(inventory[id] ?: 0L, delta)
-                    if (next < 0L || next > economyDefinitions.resources.getValue(id).storageCapacity) return reject("Stock incompatible")
+                    if (next < 0L || next > economyDefinitions.resources.getValue(id).storageCapacity) {
+                        return reject("Stock incompatible")
+                    }
                     inventory[id] = next
                 }
-                val nextMoney = Math.addExact(main.economy.spaceDollars, transaction.spaceDollarDelta)
+                val nextMoney = Math.addExact(
+                    main.economy.spaceDollars,
+                    result.transaction.spaceDollarDelta,
+                )
                 if (nextMoney < 0L) return reject("SpaceDollars insuffisants")
-                val nextMain = main.copy(economy = main.economy.copy(
-                    inventory = inventory,
-                    spaceDollars = nextMoney,
-                    transactionSequence = Math.addExact(main.economy.transactionSequence, 1L),
-                ))
-                if (!saveMain(nextMain)) return reject("Sauvegarde économique impossible")
+
+                val nextMain = main.copy(
+                    economy = main.economy.copy(
+                        inventory = inventory,
+                        spaceDollars = nextMoney,
+                        transactionSequence = Math.addExact(main.economy.transactionSequence, 1L),
+                    ),
+                )
+                val savedAt = now()
+                val committed = transactions.commit(
+                    main = nextMain,
+                    strategy = result.state,
+                    mainContentVersion = economyDefinitions.contentVersion,
+                    strategyContentVersion = strategyDefinitions.contentVersion,
+                    reason = result.transaction.reason,
+                    savedAtEpochMillis = savedAt,
+                )
+                if (!committed.committed) {
+                    persistenceBlocked = true
+                    message = "Transaction en attente · relancez l'application"
+                    services.haptic.warning()
+                    return
+                }
+
                 main = nextMain
                 strategy = result.state
-                if (!saveStrategy(strategy)) {
-                    saveMain(oldMain)
-                    main = oldMain
-                    strategy = oldStrategy
-                    return reject("Action annulée")
-                }
-                selectedInstanceId = transaction.moduleInstanceId ?: selectedInstanceId
-                message = successText(transaction.reason)
+                selectedInstanceId = result.transaction.moduleInstanceId ?: selectedInstanceId
+                message = successText(result.transaction.reason)
                 services.haptic.success()
             }
         }
     }
 
     private fun access() = StrategyAccess(
-        services.clock.nowEpochMillis().coerceAtLeast(0L),
-        main.economy.spaceDollars,
-        main.economy.inventory,
-        robots.robots.mapValues { it.value.level },
+        nowEpochMillis = now(),
+        spaceDollars = main.economy.spaceDollars,
+        inventory = main.economy.inventory,
+        robotLevels = robots.robots.mapValues { it.value.level },
     )
 
-    private fun initialMain() = ManufacturingGameState(economy.initialState(), RefiningState.empty(), AssemblyState.empty())
+    private fun now(): Long = services.clock.nowEpochMillis().coerceAtLeast(0L)
+
+    private fun initialMain() = ManufacturingGameState(
+        economy.initialState(),
+        RefiningState.empty(),
+        AssemblyState.empty(),
+    )
+
     private fun loadMain(): ManufacturingGameState = services.save.loadLatest()?.let { payload ->
-        runCatching { mainCodec.decode(payload) }.getOrNull()
+        runCatching { mainCodec.decode(payload) }
+            .onFailure { services.logger.warning(TAG, "Unable to load manufacturing state for strategy.", it) }
+            .getOrNull()
     } ?: initialMain()
+
     private fun loadRobots(): RobotAutomationState = services.save.loadLatest(RobotFleetCodec.SLOT_ID)?.let { payload ->
-        runCatching { robotEngine.normalize(robotCodec.decode(payload), services.clock.nowEpochMillis().coerceAtLeast(0L)) }.getOrNull()
-    } ?: robotEngine.initialState(services.clock.nowEpochMillis().coerceAtLeast(0L))
+        runCatching {
+            robotEngine.normalize(robotCodec.decode(payload), now())
+        }.onFailure {
+            services.logger.warning(TAG, "Unable to load robots for strategy.", it)
+        }.getOrNull()
+    } ?: robotEngine.initialState(now())
+
     private fun loadStrategy(): StrategyState = services.save.loadLatest(StrategyStateCodec.SLOT_ID)?.let { payload ->
-        runCatching { require(payload.contentVersion == strategyDefinitions.contentVersion); strategyCodec.decode(payload) }.getOrNull()
+        runCatching {
+            require(payload.contentVersion == strategyDefinitions.contentVersion)
+            strategyCodec.decode(payload)
+        }.onFailure {
+            services.logger.warning(TAG, "Unable to load strategy state.", it)
+        }.getOrNull()
     } ?: StrategyState.empty()
-    private fun saveMain(value: ManufacturingGameState) = services.save.save(mainCodec.encode(value, economyDefinitions.contentVersion, savedAtEpochMillis = services.clock.nowEpochMillis().coerceAtLeast(0L))) == SaveWriteStatus.WRITTEN
-    private fun saveStrategy(value: StrategyState) = services.save.save(strategyCodec.encode(value, strategyDefinitions.contentVersion, services.clock.nowEpochMillis().coerceAtLeast(0L))) == SaveWriteStatus.WRITTEN
+
+    private fun saveStrategy(value: StrategyState): Boolean = services.save.save(
+        strategyCodec.encode(value, strategyDefinitions.contentVersion, now()),
+    ) == SaveWriteStatus.WRITTEN
 
     private fun calculateLayout(): Layout {
         val (left, right, bottom, top) = safe()
@@ -291,34 +425,72 @@ class StrategyLabScreen(
         val moduleWidth = (width * .40f).coerceAtLeast(260f)
         val comparisonWidth = width - specializationWidth - moduleWidth - 12f
         val specializationPanel = Rectangle(left, contentBottom, specializationWidth, contentTop - contentBottom)
-        val modulePanel = Rectangle(specializationPanel.x + specializationPanel.width + 6f, contentBottom, moduleWidth, contentTop - contentBottom)
-        val comparisonPanel = Rectangle(modulePanel.x + modulePanel.width + 6f, contentBottom, comparisonWidth, contentTop - contentBottom)
+        val modulePanel = Rectangle(
+            specializationPanel.x + specializationPanel.width + 6f,
+            contentBottom,
+            moduleWidth,
+            contentTop - contentBottom,
+        )
+        val comparisonPanel = Rectangle(
+            modulePanel.x + modulePanel.width + 6f,
+            contentBottom,
+            comparisonWidth,
+            contentTop - contentBottom,
+        )
         val specializationButtons = gridButtons(specializationPanel, 2, 2, 58f, 38f, 34f)
         val moduleButtons = gridButtons(modulePanel, 4, 2, 60f, 36f, 34f)
         val robotButtons = gridButtons(comparisonPanel, 4, 1, 52f, 34f, 34f)
         val buttonWidth = (width - 5 * 6f) / 6f
-        val actions = List(6) { index -> Rectangle(left + index * (buttonWidth + 6f), bottom, buttonWidth, actionsHeight) }
-        return Layout(topBar, specializationPanel, modulePanel, comparisonPanel, specializationButtons, moduleButtons, robotButtons, actions[0], actions[1], actions[2], actions[3], actions[4], actions[5])
+        val actions = List(6) { index ->
+            Rectangle(left + index * (buttonWidth + 6f), bottom, buttonWidth, actionsHeight)
+        }
+        return Layout(
+            topBar,
+            specializationPanel,
+            modulePanel,
+            comparisonPanel,
+            specializationButtons,
+            moduleButtons,
+            robotButtons,
+            actions[0],
+            actions[1],
+            actions[2],
+            actions[3],
+            actions[4],
+            actions[5],
+        )
     }
 
-    private fun gridButtons(panel: Rectangle, columns: Int, rows: Int, cellWidth: Float, cellHeight: Float, topInset: Float): List<Rectangle> {
+    private fun gridButtons(
+        panel: Rectangle,
+        columns: Int,
+        rows: Int,
+        cellWidth: Float,
+        cellHeight: Float,
+        topInset: Float,
+    ): List<Rectangle> {
         val gap = 5f
         return List(columns * rows) { index ->
             val column = index % columns
             val row = index / columns
-            Rectangle(panel.x + 8f + column * (cellWidth + gap), panel.y + panel.height - topInset - (row + 1) * cellHeight - row * gap, cellWidth, cellHeight)
+            Rectangle(
+                panel.x + 8f + column * (cellWidth + gap),
+                panel.y + panel.height - topInset - (row + 1) * cellHeight - row * gap,
+                cellWidth,
+                cellHeight,
+            )
         }
     }
 
     private fun safe(): List<Float> {
-        val w = viewport.worldWidth
-        val h = viewport.worldHeight
-        val sx = w / Gdx.graphics.width.coerceAtLeast(1)
-        val sy = h / Gdx.graphics.height.coerceAtLeast(1)
-        val left = Gdx.graphics.safeInsetLeft * sx + 8f
-        val right = max(left + 1f, w - Gdx.graphics.safeInsetRight * sx - 8f)
-        val bottom = Gdx.graphics.safeInsetBottom * sy + 8f
-        val top = max(bottom + 1f, h - Gdx.graphics.safeInsetTop * sy - 8f)
+        val width = viewport.worldWidth
+        val height = viewport.worldHeight
+        val scaleX = width / Gdx.graphics.width.coerceAtLeast(1)
+        val scaleY = height / Gdx.graphics.height.coerceAtLeast(1)
+        val left = Gdx.graphics.safeInsetLeft * scaleX + 8f
+        val right = max(left + 1f, width - Gdx.graphics.safeInsetRight * scaleX - 8f)
+        val bottom = Gdx.graphics.safeInsetBottom * scaleY + 8f
+        val top = max(bottom + 1f, height - Gdx.graphics.safeInsetTop * scaleY - 8f)
         return listOf(left, right, bottom, top)
     }
 
@@ -328,6 +500,7 @@ class StrategyLabScreen(
         SpecializationId.RESEARCH -> "RECHERCHE"
         SpecializationId.PROSPECTOR -> "PROSPECTION"
     }
+
     private fun moduleName(id: GameId) = when (id.value) {
         "module_forge_drill" -> "Foreuse"
         "module_forge_thermal" -> "Thermique"
@@ -338,9 +511,19 @@ class StrategyLabScreen(
         "module_storage_capsule" -> "Stockage"
         else -> "Batterie"
     }
-    private fun short(id: GameId) = id.value.removePrefix("refined_").removePrefix("component_").replace('_', ' ')
+
+    private fun short(id: GameId) = id.value
+        .removePrefix("refined_")
+        .removePrefix("component_")
+        .replace('_', ' ')
+
     private fun percent(value: Long) = "%.0f%%".format(value / 10_000.0)
-    private fun reject(text: String) { message = text; services.haptic.warning() }
+
+    private fun reject(text: String) {
+        message = text
+        services.haptic.warning()
+    }
+
     private fun rejectionText(code: String) = when (code) {
         "specialization_cooldown" -> "Changement disponible après le délai"
         "insufficient_space_dollars" -> "SpaceDollars insuffisants"
@@ -349,6 +532,7 @@ class StrategyLabScreen(
         "module_max_level" -> "Niveau maximal"
         else -> code
     }
+
     private fun successText(reason: String) = when (reason) {
         "change_specialization" -> "Spécialisation appliquée"
         "craft_module" -> "Module fabriqué"
@@ -359,7 +543,13 @@ class StrategyLabScreen(
         else -> reason
     }
 
-    override fun dispose() { hide(); shapes.dispose(); batch.dispose(); font.dispose(); small.dispose() }
+    override fun dispose() {
+        hide()
+        shapes.dispose()
+        batch.dispose()
+        font.dispose()
+        small.dispose()
+    }
 
     private data class Layout(
         val top: Rectangle,
@@ -378,6 +568,7 @@ class StrategyLabScreen(
     )
 
     private companion object {
+        const val TAG = "StrategyLabScreen"
         val BACKGROUND = Color(.007f, .012f, .028f, 1f)
         val TOP = Color(.025f, .055f, .10f, 1f)
         val PANEL = Color(.035f, .072f, .12f, 1f)

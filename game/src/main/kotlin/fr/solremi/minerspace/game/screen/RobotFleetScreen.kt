@@ -8,39 +8,356 @@ import fr.solremi.minerspace.data.economy.CoreEconomyContentLoader
 import fr.solremi.minerspace.data.robot.RobotContentLoader
 import fr.solremi.minerspace.data.save.ManufacturingSnapshotCodec
 import fr.solremi.minerspace.data.save.RobotFleetCodec
-import fr.solremi.minerspace.domain.assembly.*
+import fr.solremi.minerspace.data.transaction.RobotStateTransactionCoordinator
+import fr.solremi.minerspace.domain.assembly.AssemblyJobStatus
+import fr.solremi.minerspace.domain.assembly.AssemblyState
+import fr.solremi.minerspace.domain.assembly.ManufacturingGameState
 import fr.solremi.minerspace.domain.economy.CoreEconomyEngine
-import fr.solremi.minerspace.domain.refining.*
-import fr.solremi.minerspace.domain.robot.*
-import fr.solremi.minerspace.domain.services.*
+import fr.solremi.minerspace.domain.refining.RefiningJobStatus
+import fr.solremi.minerspace.domain.refining.RefiningState
+import fr.solremi.minerspace.domain.robot.PendingDeposit
+import fr.solremi.minerspace.domain.robot.QueueTask
+import fr.solremi.minerspace.domain.robot.RobotAutomationEngine
+import fr.solremi.minerspace.domain.robot.RobotAutomationState
+import fr.solremi.minerspace.domain.robot.RobotCommandResult
+import fr.solremi.minerspace.domain.robot.RobotFamily
+import fr.solremi.minerspace.domain.robot.RobotInstance
+import fr.solremi.minerspace.domain.services.GameServices
+import fr.solremi.minerspace.domain.services.LifecycleObserver
+import fr.solremi.minerspace.domain.services.LifecycleState
+import fr.solremi.minerspace.domain.services.SaveWriteStatus
 import ktx.app.KtxScreen
 
-class RobotFleetScreen(private val services: GameServices, private val onBack: () -> Unit) : KtxScreen {
-    private val economyDef=CoreEconomyContentLoader().load(services.content); private val economy=CoreEconomyEngine(economyDef)
-    private val definitions=RobotContentLoader().load(services.content); private val engine=RobotAutomationEngine(definitions); private val ui=RobotFleetUi(engine)
-    private val mainCodec=ManufacturingSnapshotCodec(); private val fleetCodec=RobotFleetCodec()
-    private var main=loadMain(); private var fleet=loadFleet(); private var selected=fleet.robots.values.first().id; private var message="Automatisation active"; private var lastTick=services.clock.monotonicMillis(); private var layout:RobotFleetUi.Layout?=null
-    private val lifecycle=LifecycleObserver{if(it==LifecycleState.BACKGROUND)saveFleet()}
-    private val input=object:InputAdapter(){override fun touchDown(x:Int,y:Int,pointer:Int,button:Int):Boolean{touch(ui.unproject(x,y));return true}}
-    override fun show(){services.lifecycle.addObserver(lifecycle);Gdx.input.inputProcessor=input;main=loadMain();fleet=engine.normalize(loadFleet(),now());rebalance();transfer(true);lastTick=services.clock.monotonicMillis()}
-    override fun hide(){saveFleet();services.lifecycle.removeObserver(lifecycle);if(Gdx.input.inputProcessor===input)Gdx.input.inputProcessor=null}
-    override fun resize(w:Int,h:Int)=ui.resize(w,h)
-    override fun render(delta:Float){val tick=services.clock.monotonicMillis();if(tick-lastTick>=1_000){transfer(false);lastTick=tick};ScreenUtils.clear(BG);val robot=fleet.robots.getValue(selected);layout=ui.draw(fleet,robot,tasks(robot),message)}
-    private fun now()=services.clock.nowEpochMillis().coerceAtLeast(0)
-    private fun initialMain()=ManufacturingGameState(economy.initialState(),RefiningState.empty(),AssemblyState.empty())
-    private fun loadMain()=services.save.loadLatest()?.let{p->runCatching{require(p.contentVersion==economyDef.contentVersion);mainCodec.decode(p)}.getOrNull()}?:initialMain()
-    private fun loadFleet()=services.save.loadLatest(RobotFleetCodec.SLOT_ID)?.let{p->runCatching{require(p.contentVersion==definitions.contentVersion);fleetCodec.decode(p)}.getOrNull()}?:engine.initialState(now())
-    private fun saveMain(v:ManufacturingGameState)=services.save.save(mainCodec.encode(v,economyDef.contentVersion,savedAtEpochMillis=now()))==SaveWriteStatus.WRITTEN
-    private fun saveFleet(v:RobotAutomationState=fleet)=services.save.save(fleetCodec.encode(v,definitions.contentVersion,now()))==SaveWriteStatus.WRITTEN
-    private fun transfer(force:Boolean){val r=engine.advanceLogistics(fleet,economyDef.deposits.values.map{PendingDeposit(it.id,it.resourceId,main.economy.deposits.getValue(it.id).pendingCollection)},main.economy.inventory,economyDef.resources.mapValues{it.value.storageCapacity},economyDef.resources.mapValues{it.value.unitSalePrice},now());if(r.totalMoved==0L){fleet=r.automation;if(force)saveFleet();return};val next=main.copy(economy=main.economy.copy(inventory=r.inventory,deposits=main.economy.deposits.mapValues{(id,s)->s.copy(pendingCollection=r.pendingByDeposit[id]?:s.pendingCollection)},transactionSequence=Math.addExact(main.economy.transactionSequence,1)));if(!saveMain(next)){message="Transfert différé";return};main=next;fleet=r.automation;saveFleet();message="LG-01 : ${r.totalMoved} transférée(s)"}
-    private data class Timed(val id:String,val queued:Long,val start:Long,val finish:Long)
-    private fun schedule(tasks:List<Timed>,lanes:Int,time:Long):Map<String,Pair<Long,Long>>{val ends=LongArray(lanes){time};return tasks.sortedBy{it.queued}.associate{t->val lane=ends.indices.minBy{ends[it]};val start=maxOf(time,ends[lane]);val finish=Math.addExact(start,(t.finish-t.start).coerceAtLeast(1));ends[lane]=finish;t.id to(start to finish)}}
-    private fun rebalance(){val time=now();val rf=schedule(main.refining.jobs.filter{it.status==RefiningJobStatus.QUEUED}.map{Timed(it.id,it.queuedAtEpochMillis,it.startsAtEpochMillis,it.finishesAtEpochMillis)},engine.queueCount(robot(RobotFamily.REFINER)),time);val ass=schedule(main.assembly.jobs.filter{it.status==AssemblyJobStatus.QUEUED}.map{Timed(it.id,it.queuedAtEpochMillis,it.startsAtEpochMillis,it.finishesAtEpochMillis)},engine.queueCount(robot(RobotFamily.ASSEMBLER)),time);if(rf.isEmpty()&&ass.isEmpty())return;val next=main.copy(refining=main.refining.copy(jobs=main.refining.jobs.map{rf[it.id]?.let{t->it.copy(startsAtEpochMillis=t.first,finishesAtEpochMillis=t.second)}?:it}),assembly=main.assembly.copy(jobs=main.assembly.jobs.map{ass[it.id]?.let{t->it.copy(startsAtEpochMillis=t.first,finishesAtEpochMillis=t.second)}?:it}));if(next!=main&&saveMain(next))main=next}
-    private fun tasks(r:RobotInstance):List<QueueTask> = when(r.family){RobotFamily.REFINER->main.refining.jobs.take(6).map{QueueTask(it.id,((it.finishesAtEpochMillis-it.startsAtEpochMillis)/1_000).coerceAtLeast(1))};RobotFamily.ASSEMBLER->main.assembly.jobs.take(6).map{QueueTask(it.id,((it.finishesAtEpochMillis-it.startsAtEpochMillis)/1_000).coerceAtLeast(1))};else->(1..6).map{QueueTask("${r.family}_$it",7L+it*4)}}
-    private fun touch(p:com.badlogic.gdx.math.Vector2){val l=layout?:return;l.cards.forEachIndexed{i,r->if(r.contains(p)){selected=ordered()[i].id;services.haptic.impact();return}};when{l.priority.contains(p)->priority();l.upgrade.contains(p)->upgrade();l.quality.contains(p)->{fleet=engine.cycleQuality(fleet);saveFleet();message="${engine.visibleUnitCount(fleet)} unités"};l.back.contains(p)->onBack()}}
-    private fun priority()=when(val r=engine.cyclePriority(fleet,selected)){is RobotCommandResult.Applied->{fleet=r.state;saveFleet();message=fleet.robots.getValue(selected).priority.name;services.haptic.success()};is RobotCommandResult.Rejected->services.haptic.warning()}
-    private fun upgrade(){val oldMain=main;val oldFleet=fleet;when(val r=engine.upgrade(fleet,selected,main.economy.spaceDollars)){is RobotCommandResult.Rejected->{message=if(r.code=="insufficient_space_dollars")"SpaceDollars insuffisants" else "Niveau maximal";services.haptic.warning()};is RobotCommandResult.Applied->{val next=main.copy(economy=main.economy.copy(spaceDollars=main.economy.spaceDollars-r.transaction.spaceDollarCost,transactionSequence=Math.addExact(main.economy.transactionSequence,1)));if(!saveMain(next)){message="Amélioration annulée";return};main=next;fleet=r.state;rebalance();if(!saveFleet()){saveMain(oldMain);main=oldMain;fleet=oldFleet;message="Amélioration annulée";return};message="Niveau ${fleet.robots.getValue(selected).level}";services.haptic.success()}}}
-    private fun robot(f:RobotFamily)=fleet.robots.values.first{it.family==f};private fun ordered()=fleet.robots.values.sortedBy{it.family.ordinal}
-    override fun dispose(){hide();ui.dispose()}
-    private companion object{val BG=Color(.008f,.014f,.03f,1f)}
+class RobotFleetScreen(
+    private val services: GameServices,
+    private val onBack: () -> Unit,
+) : KtxScreen {
+    private val economyDefinitions = CoreEconomyContentLoader().load(services.content)
+    private val economy = CoreEconomyEngine(economyDefinitions)
+    private val definitions = RobotContentLoader().load(services.content)
+    private val engine = RobotAutomationEngine(definitions)
+    private val ui = RobotFleetUi(engine)
+    private val mainCodec = ManufacturingSnapshotCodec()
+    private val fleetCodec = RobotFleetCodec()
+    private val transactions = RobotStateTransactionCoordinator(
+        services.save,
+        services.clock,
+        services.logger,
+    )
+
+    private var main = loadMain()
+    private var fleet = loadFleet()
+    private var selected = fleet.robots.values.first().id
+    private var message = "Automatisation active"
+    private var lastTick = services.clock.monotonicMillis()
+    private var layout: RobotFleetUi.Layout? = null
+    private var persistenceBlocked = false
+
+    private val lifecycle = LifecycleObserver {
+        if (it == LifecycleState.BACKGROUND && !persistenceBlocked) saveFleet()
+    }
+    private val input = object : InputAdapter() {
+        override fun touchDown(x: Int, y: Int, pointer: Int, button: Int): Boolean {
+            touch(ui.unproject(x, y))
+            return true
+        }
+    }
+
+    override fun show() {
+        services.lifecycle.addObserver(lifecycle)
+        Gdx.input.inputProcessor = input
+        main = loadMain()
+        fleet = engine.normalize(loadFleet(), now())
+        persistenceBlocked = false
+        rebalance()
+        transfer(force = true)
+        lastTick = services.clock.monotonicMillis()
+    }
+
+    override fun hide() {
+        if (!persistenceBlocked) saveFleet()
+        services.lifecycle.removeObserver(lifecycle)
+        if (Gdx.input.inputProcessor === input) Gdx.input.inputProcessor = null
+    }
+
+    override fun resize(width: Int, height: Int) = ui.resize(width, height)
+
+    override fun render(delta: Float) {
+        val tick = services.clock.monotonicMillis()
+        if (!persistenceBlocked && tick - lastTick >= 1_000L) {
+            transfer(force = false)
+            lastTick = tick
+        }
+        ScreenUtils.clear(BACKGROUND)
+        val robot = fleet.robots.getValue(selected)
+        layout = ui.draw(fleet, robot, tasks(robot), message)
+    }
+
+    private fun now(): Long = services.clock.nowEpochMillis().coerceAtLeast(0L)
+
+    private fun initialMain() = ManufacturingGameState(
+        economy.initialState(),
+        RefiningState.empty(),
+        AssemblyState.empty(),
+    )
+
+    private fun loadMain(): ManufacturingGameState = services.save.loadLatest()?.let { payload ->
+        runCatching {
+            require(payload.contentVersion == economyDefinitions.contentVersion)
+            mainCodec.decode(payload)
+        }.onFailure {
+            services.logger.warning(TAG, "Unable to load manufacturing state for robots.", it)
+        }.getOrNull()
+    } ?: initialMain()
+
+    private fun loadFleet(): RobotAutomationState = services.save.loadLatest(RobotFleetCodec.SLOT_ID)?.let { payload ->
+        runCatching {
+            require(payload.contentVersion == definitions.contentVersion)
+            fleetCodec.decode(payload)
+        }.onFailure {
+            services.logger.warning(TAG, "Unable to load robot fleet state.", it)
+        }.getOrNull()
+    } ?: engine.initialState(now())
+
+    private fun saveMain(value: ManufacturingGameState): Boolean = services.save.save(
+        mainCodec.encode(value, economyDefinitions.contentVersion, savedAtEpochMillis = now()),
+    ) == SaveWriteStatus.WRITTEN
+
+    private fun saveFleet(value: RobotAutomationState = fleet): Boolean = services.save.save(
+        fleetCodec.encode(value, definitions.contentVersion, now()),
+    ) == SaveWriteStatus.WRITTEN
+
+    private fun commitBoth(
+        nextMain: ManufacturingGameState,
+        nextFleet: RobotAutomationState,
+        reason: String,
+    ): Boolean {
+        val savedAt = now()
+        val result = transactions.commit(
+            main = nextMain,
+            robots = nextFleet,
+            mainContentVersion = economyDefinitions.contentVersion,
+            robotContentVersion = definitions.contentVersion,
+            reason = reason,
+            savedAtEpochMillis = savedAt,
+        )
+        if (!result.committed) {
+            persistenceBlocked = true
+            message = "Transaction en attente · relancez l'application"
+            services.haptic.warning()
+            return false
+        }
+        main = nextMain
+        fleet = nextFleet
+        return true
+    }
+
+    private fun transfer(force: Boolean) {
+        val result = engine.advanceLogistics(
+            state = fleet,
+            deposits = economyDefinitions.deposits.values.map { definition ->
+                PendingDeposit(
+                    definition.id,
+                    definition.resourceId,
+                    main.economy.deposits.getValue(definition.id).pendingCollection,
+                )
+            },
+            inventory = main.economy.inventory,
+            storageCapacities = economyDefinitions.resources.mapValues { it.value.storageCapacity },
+            unitSalePrices = economyDefinitions.resources.mapValues { it.value.unitSalePrice },
+            nowEpochMillis = now(),
+        )
+        if (result.totalMoved == 0L) {
+            val previous = fleet
+            fleet = result.automation
+            if (force && !saveFleet()) {
+                fleet = previous
+                message = "État robot non sauvegardé"
+            }
+            return
+        }
+
+        val nextMain = main.copy(
+            economy = main.economy.copy(
+                inventory = result.inventory,
+                deposits = main.economy.deposits.mapValues { (id, state) ->
+                    state.copy(pendingCollection = result.pendingByDeposit[id] ?: state.pendingCollection)
+                },
+                transactionSequence = Math.addExact(main.economy.transactionSequence, 1L),
+            ),
+        )
+        if (commitBoth(nextMain, result.automation, "logistics")) {
+            message = "LG-01 : ${result.totalMoved} transférée(s)"
+        }
+    }
+
+    private data class Timed(
+        val id: String,
+        val queued: Long,
+        val start: Long,
+        val finish: Long,
+    )
+
+    private fun schedule(
+        tasks: List<Timed>,
+        lanes: Int,
+        time: Long,
+    ): Map<String, Pair<Long, Long>> {
+        val ends = LongArray(lanes) { time }
+        return tasks.sortedBy { it.queued }.associate { task ->
+            val lane = ends.indices.minBy { ends[it] }
+            val start = maxOf(time, ends[lane])
+            val finish = Math.addExact(start, (task.finish - task.start).coerceAtLeast(1L))
+            ends[lane] = finish
+            task.id to (start to finish)
+        }
+    }
+
+    private fun rebalancedMain(
+        sourceMain: ManufacturingGameState,
+        sourceFleet: RobotAutomationState,
+    ): ManufacturingGameState {
+        val time = now()
+        val refiningSchedule = schedule(
+            sourceMain.refining.jobs
+                .filter { it.status == RefiningJobStatus.QUEUED }
+                .map { Timed(it.id, it.queuedAtEpochMillis, it.startsAtEpochMillis, it.finishesAtEpochMillis) },
+            engine.queueCount(robot(sourceFleet, RobotFamily.REFINER)),
+            time,
+        )
+        val assemblySchedule = schedule(
+            sourceMain.assembly.jobs
+                .filter { it.status == AssemblyJobStatus.QUEUED }
+                .map { Timed(it.id, it.queuedAtEpochMillis, it.startsAtEpochMillis, it.finishesAtEpochMillis) },
+            engine.queueCount(robot(sourceFleet, RobotFamily.ASSEMBLER)),
+            time,
+        )
+        if (refiningSchedule.isEmpty() && assemblySchedule.isEmpty()) return sourceMain
+        return sourceMain.copy(
+            refining = sourceMain.refining.copy(
+                jobs = sourceMain.refining.jobs.map { job ->
+                    refiningSchedule[job.id]?.let { timing ->
+                        job.copy(startsAtEpochMillis = timing.first, finishesAtEpochMillis = timing.second)
+                    } ?: job
+                },
+            ),
+            assembly = sourceMain.assembly.copy(
+                jobs = sourceMain.assembly.jobs.map { job ->
+                    assemblySchedule[job.id]?.let { timing ->
+                        job.copy(startsAtEpochMillis = timing.first, finishesAtEpochMillis = timing.second)
+                    } ?: job
+                },
+            ),
+        )
+    }
+
+    private fun rebalance() {
+        val next = rebalancedMain(main, fleet)
+        if (next != main && saveMain(next)) main = next
+    }
+
+    private fun tasks(robot: RobotInstance): List<QueueTask> = when (robot.family) {
+        RobotFamily.REFINER -> main.refining.jobs.take(6).map {
+            QueueTask(it.id, ((it.finishesAtEpochMillis - it.startsAtEpochMillis) / 1_000L).coerceAtLeast(1L))
+        }
+        RobotFamily.ASSEMBLER -> main.assembly.jobs.take(6).map {
+            QueueTask(it.id, ((it.finishesAtEpochMillis - it.startsAtEpochMillis) / 1_000L).coerceAtLeast(1L))
+        }
+        else -> (1..6).map { QueueTask("${robot.family}_$it", 7L + it * 4L) }
+    }
+
+    private fun touch(point: com.badlogic.gdx.math.Vector2) {
+        if (persistenceBlocked) {
+            message = "Relancez l'application pour terminer la transaction"
+            services.haptic.warning()
+            return
+        }
+        val current = layout ?: return
+        current.cards.forEachIndexed { index, rectangle ->
+            if (rectangle.contains(point)) {
+                selected = ordered()[index].id
+                services.haptic.impact()
+                return
+            }
+        }
+        when {
+            current.priority.contains(point) -> priority()
+            current.upgrade.contains(point) -> upgrade()
+            current.quality.contains(point) -> cycleQuality()
+            current.back.contains(point) -> onBack()
+        }
+    }
+
+    private fun priority() {
+        when (val result = engine.cyclePriority(fleet, selected)) {
+            is RobotCommandResult.Rejected -> services.haptic.warning()
+            is RobotCommandResult.Applied -> {
+                val previous = fleet
+                if (saveFleet(result.state)) {
+                    fleet = result.state
+                    message = fleet.robots.getValue(selected).priority.name
+                    services.haptic.success()
+                } else {
+                    fleet = previous
+                    message = "Priorité non sauvegardée"
+                    services.haptic.warning()
+                }
+            }
+        }
+    }
+
+    private fun cycleQuality() {
+        val previous = fleet
+        val next = engine.cycleQuality(fleet)
+        if (saveFleet(next)) {
+            fleet = next
+            message = "${engine.visibleUnitCount(fleet)} unités"
+            services.haptic.impact()
+        } else {
+            fleet = previous
+            message = "Qualité non sauvegardée"
+            services.haptic.warning()
+        }
+    }
+
+    private fun upgrade() {
+        when (val result = engine.upgrade(fleet, selected, main.economy.spaceDollars)) {
+            is RobotCommandResult.Rejected -> {
+                message = if (result.code == "insufficient_space_dollars") {
+                    "SpaceDollars insuffisants"
+                } else {
+                    "Niveau maximal"
+                }
+                services.haptic.warning()
+            }
+            is RobotCommandResult.Applied -> {
+                val baseMain = main.copy(
+                    economy = main.economy.copy(
+                        spaceDollars = main.economy.spaceDollars - result.transaction.spaceDollarCost,
+                        transactionSequence = Math.addExact(main.economy.transactionSequence, 1L),
+                    ),
+                )
+                val nextMain = rebalancedMain(baseMain, result.state)
+                if (commitBoth(nextMain, result.state, "upgrade")) {
+                    message = "Niveau ${fleet.robots.getValue(selected).level}"
+                    services.haptic.success()
+                }
+            }
+        }
+    }
+
+    private fun robot(state: RobotAutomationState, family: RobotFamily): RobotInstance =
+        state.robots.values.first { it.family == family }
+
+    private fun ordered(): List<RobotInstance> = fleet.robots.values.sortedBy { it.family.ordinal }
+
+    override fun dispose() {
+        hide()
+        ui.dispose()
+    }
+
+    private companion object {
+        const val TAG = "RobotFleetScreen"
+        val BACKGROUND = Color(.008f, .014f, .03f, 1f)
+    }
 }
