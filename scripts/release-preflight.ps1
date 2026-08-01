@@ -1,5 +1,8 @@
 $ErrorActionPreference = "Stop"
 
+python (Join-Path $PSScriptRoot "source-safety-check.py")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 $required = @(
   "ADMOB_APP_ID",
   "ADMOB_REWARDED_UNIT_ID",

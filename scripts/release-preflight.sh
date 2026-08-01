@@ -1,6 +1,18 @@
 #!/usr/bin/env sh
 set -eu
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON=python3
+elif command -v python >/dev/null 2>&1; then
+  PYTHON=python
+else
+  echo "Python 3 is required for release preflight" >&2
+  exit 1
+fi
+
+"$PYTHON" "$SCRIPT_DIR/source-safety-check.py"
+
 : "${ADMOB_APP_ID:?ADMOB_APP_ID is required}"
 : "${ADMOB_REWARDED_UNIT_ID:?ADMOB_REWARDED_UNIT_ID is required}"
 : "${PRIVACY_POLICY_URL:?PRIVACY_POLICY_URL is required}"
@@ -12,8 +24,7 @@ set -eu
 
 case "$PRIVACY_POLICY_URL" in https://*) ;; *) echo "PRIVACY_POLICY_URL must use HTTPS" >&2; exit 1 ;; esac
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-python3 "$SCRIPT_DIR/release-readiness.py" --repository-only
+"$PYTHON" "$SCRIPT_DIR/release-readiness.py" --repository-only
 
 exec sh "$SCRIPT_DIR/run-gradle.sh" \
   :androidApp:validateReleaseConfiguration \
