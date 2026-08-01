@@ -21,39 +21,93 @@ data class RuntimePerformanceBudget(
     }
 }
 
+object RuntimeMemoryProfile {
+    val memoryClassMb: Int
+        get() = (Runtime.getRuntime().maxMemory() / (1024L * 1024L))
+            .coerceAtLeast(32L)
+            .coerceAtMost(Int.MAX_VALUE.toLong())
+            .toInt()
+
+    val lowMemoryDevice: Boolean
+        get() = memoryClassMb <= LOW_MEMORY_THRESHOLD_MB
+
+    private const val LOW_MEMORY_THRESHOLD_MB = 192
+}
+
+/** Allocation-free quality governor fed by FrameTimeMonitor.record(). */
+object AdaptiveRuntimeGovernor {
+    private const val WINDOW_SIZE = 120
+    private const val SLOW_FRAME_NANOS = 27_000_000L
+    private const val RECOVERY_WINDOWS = 6
+    private var sampleCount = 0
+    private var slowFrameCount = 0
+    private var healthyWindows = 0
+    private var qualityPenalty = 0
+
+    @Synchronized
+    fun record(frameNanos: Long) {
+        if (frameNanos < 0L) return
+        sampleCount++
+        if (frameNanos >= SLOW_FRAME_NANOS) slowFrameCount++
+        if (sampleCount < WINDOW_SIZE) return
+        val slowRatio = slowFrameCount.toDouble() / sampleCount
+        when {
+            slowRatio >= 0.15 -> {
+                qualityPenalty = minOf(2, qualityPenalty + 1)
+                healthyWindows = 0
+            }
+            slowRatio <= 0.02 -> {
+                healthyWindows++
+                if (healthyWindows >= RECOVERY_WINDOWS) {
+                    qualityPenalty = maxOf(0, qualityPenalty - 1)
+                    healthyWindows = 0
+                }
+            }
+            else -> healthyWindows = 0
+        }
+        sampleCount = 0
+        slowFrameCount = 0
+    }
+
+    @Synchronized
+    fun effectiveQuality(selected: VisualQuality, lowMemoryDevice: Boolean): VisualQuality {
+        var effective = if (lowMemoryDevice && selected == VisualQuality.HIGH) VisualQuality.MEDIUM else selected
+        repeat(qualityPenalty) {
+            effective = when (effective) {
+                VisualQuality.HIGH -> VisualQuality.MEDIUM
+                VisualQuality.MEDIUM -> VisualQuality.LOW
+                VisualQuality.LOW -> VisualQuality.LOW
+            }
+        }
+        return effective
+    }
+
+    @Synchronized
+    internal fun resetForTests() {
+        sampleCount = 0
+        slowFrameCount = 0
+        healthyWindows = 0
+        qualityPenalty = 0
+    }
+}
+
 object RuntimePerformanceBudgets {
     fun forQuality(
         quality: VisualQuality,
-        lowMemoryDevice: Boolean = false,
+        lowMemoryDevice: Boolean = RuntimeMemoryProfile.lowMemoryDevice,
+        adaptive: Boolean = true,
     ): RuntimePerformanceBudget {
-        val base = when (quality) {
-            VisualQuality.LOW -> RuntimePerformanceBudget(
-                maxVisibleRobots = 12,
-                maxParticles = 40,
-                maxMeteorTrails = 8,
-                maxLoadedModels = 24,
-                maxTextureEdge = 512,
-                shaderPasses = 0,
-                assetMemoryBudgetBytes = 96L * 1024L * 1024L,
-            )
-            VisualQuality.MEDIUM -> RuntimePerformanceBudget(
-                maxVisibleRobots = 28,
-                maxParticles = 100,
-                maxMeteorTrails = 16,
-                maxLoadedModels = 48,
-                maxTextureEdge = 1024,
-                shaderPasses = 1,
-                assetMemoryBudgetBytes = 192L * 1024L * 1024L,
-            )
-            VisualQuality.HIGH -> RuntimePerformanceBudget(
-                maxVisibleRobots = 50,
-                maxParticles = 180,
-                maxMeteorTrails = 28,
-                maxLoadedModels = 80,
-                maxTextureEdge = 2048,
-                shaderPasses = 2,
-                assetMemoryBudgetBytes = 320L * 1024L * 1024L,
-            )
+        val effective = if (adaptive) {
+            AdaptiveRuntimeGovernor.effectiveQuality(quality, lowMemoryDevice)
+        } else if (lowMemoryDevice && quality == VisualQuality.HIGH) {
+            VisualQuality.MEDIUM
+        } else {
+            quality
+        }
+        val base = when (effective) {
+            VisualQuality.LOW -> RuntimePerformanceBudget(12, 40, 8, 24, 512, 0, 96L * 1024L * 1024L)
+            VisualQuality.MEDIUM -> RuntimePerformanceBudget(28, 100, 16, 48, 1024, 1, 192L * 1024L * 1024L)
+            VisualQuality.HIGH -> RuntimePerformanceBudget(50, 180, 28, 80, 2048, 2, 320L * 1024L * 1024L)
         }
         return if (!lowMemoryDevice) base else base.copy(
             maxVisibleRobots = minOf(base.maxVisibleRobots, 16),
@@ -88,6 +142,7 @@ class FrameTimeMonitor(
         samples[cursor] = frameNanos
         cursor = (cursor + 1) % samples.size
         if (count < samples.size) count++
+        AdaptiveRuntimeGovernor.record(frameNanos)
     }
 
     fun snapshot(): FrameTimeSnapshot {
