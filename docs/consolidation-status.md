@@ -2,35 +2,32 @@
 
 ## Corrigé
 
-- build et version reproductibles depuis un clone neuf ;
-- contrôles locaux, Android Lint, tests paysage et instrumentation Android ;
-- journal multi-slots avec reprise idempotente ;
-- transfert planétaire, secteurs et météorites atomiques ;
-- coordinateur de production avec rollback réel ;
-- catalogue typé de textes et primitives communes de codecs ;
-- coordinateur générique de publicité récompensée contextuelle ;
-- `scopeId` obligatoire pour les offres `RETURN` et `EVENT` ;
-- refus d’une seconde récompense pour le même retour ou événement ;
-- doublement facultatif du retour hors ligne, plafonné à huit heures ;
-- prolongation météorique facultative de quinze secondes ;
-- consommation du jeton et état gameplay enregistrés dans la même transaction ;
-- reprise automatique lorsqu’une publicité est validée avant une interruption.
+- build et version reproductibles ;
+- transactions multi-slots et rollback des actions ;
+- coordinateurs production, exploration, transfert, météorites, retour hors ligne et publicités contextuelles ;
+- catalogue typé de textes et codecs versionnés communs ;
+- tests paysage et Android ;
+- registre d’assets à références comptées ;
+- groupes de durée de vie `CORE_UI`, `FERRUM`, `CRYOS`, `FRONTIER`, `ROBOTS` et `AUDIO` ;
+- annulation du chargement ou déchargement lorsque la dernière référence disparaît ;
+- estimation mémoire par asset et par ensemble chargé ;
+- budgets LOW, MEDIUM, HIGH et profil appareil à faible mémoire ;
+- limites explicites pour robots visibles, particules, traînées, modèles, textures et shaders ;
+- moniteur circulaire de temps de frame sans allocation pendant `record()`.
 
-## Règles publicitaires
+## Intégration des futurs assets
 
-- aucune publicité obligatoire ;
-- aucun interstitiel ;
-- aucune publicité pendant le tutoriel, une transmission ou une animation majeure ;
-- la récompense exacte est connue avant le lancement ;
-- une fermeture ou une indisponibilité ne consomme aucune limite ;
-- les offres de retour et d’événement ne sont utilisables qu’une fois pour leur `scopeId` ;
-- le gameplay normal reste disponible en cas de refus, d’absence de réseau ou de SDK indisponible.
+Les fichiers ne doivent pas être chargés directement depuis un écran. Chaque fichier final recevra un `GameAssetDescriptor` reprenant l’identifiant et le chemin définis dans `docs/asset-production-pack.md`. Un écran acquiert son groupe à l’entrée et le libère à la sortie.
 
-## Non traité ici
+Le backend concret devra :
 
-- sons, musiques, modèles, textures et VFX finaux ;
-- tests sur le parc physique complet ;
-- opérations externes Play Console.
+- charger les textures, sons et musiques de manière asynchrone ;
+- enregistrer un chargeur GLB compatible avant l’ajout des modèles `.glb` ;
+- annuler un fichier encore en file lorsque `unload()` est appelé ;
+- ne jamais dépasser `RuntimePerformanceBudget.assetMemoryBudgetBytes` ;
+- choisir le profil faible mémoire lorsque l’appareil le nécessite.
+
+Aucun son, modèle, texture ou VFX factice n’a été ajouté.
 
 ## Priorités
 
@@ -40,7 +37,7 @@
 4. **Terminé** — catalogue de textes.
 5. **Terminé** — codecs versionnés communs.
 6. **Terminé** — tests interface et Android.
-7. **Terminé** — publicités contextuelles hors ligne et météorites.
-8. Préparer les performances et futurs assets.
+7. **Terminé** — publicités contextuelles.
+8. **Terminé** — budgets de performance et gestion de durée de vie des futurs assets.
 9. Uniformiser les diagnostics locaux.
 10. Renforcer la validation release.
