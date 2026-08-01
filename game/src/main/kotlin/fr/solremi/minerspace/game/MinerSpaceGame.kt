@@ -59,7 +59,7 @@ class MinerSpaceGame(
             InitialRoute.PLANET_TRANSFER -> setScreen<PlanetTransferScreen>()
             InitialRoute.FRONTIER -> setScreen<InterplanetaryFrontierScreen>()
             InitialRoute.CRYOS -> setScreen<CryosFrontierGatewayScreen>()
-            InitialRoute.FERRUM -> setScreen<PresentationGameplayScreen>()
+            InitialRoute.FERRUM -> setScreen<FerrumVerticalSliceScreen>()
         }
     }
 
@@ -72,7 +72,7 @@ class MinerSpaceGame(
 
     private fun addScreens() {
         if (added) return
-        addScreen(PresentationGameplayScreen(
+        addScreen(FerrumVerticalSliceScreen(
             services,
             { setScreen<MeteorShowerScreen>() },
             { setScreen<RobotFleetScreen>() },
@@ -83,21 +83,21 @@ class MinerSpaceGame(
             { setScreen<PlanetTransferScreen>() },
             { setScreen<RewardedAdsScreen>() },
         ))
-        addScreen(MeteorShowerScreen(services) { setScreen<PresentationGameplayScreen>() })
-        addScreen(RobotFleetScreen(services) { setScreen<PresentationGameplayScreen>() })
-        addScreen(StrategyLabScreen(services) { setScreen<PresentationGameplayScreen>() })
-        addScreen(MissionControlScreen(services) { setScreen<PresentationGameplayScreen>() })
-        addScreen(NarrativeArchiveScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(MeteorShowerScreen(services) { setScreen<FerrumVerticalSliceScreen>() })
+        addScreen(RobotFleetScreen(services) { setScreen<FerrumVerticalSliceScreen>() })
+        addScreen(StrategyLabScreen(services) { setScreen<FerrumVerticalSliceScreen>() })
+        addScreen(MissionControlScreen(services) { setScreen<FerrumVerticalSliceScreen>() })
+        addScreen(NarrativeArchiveScreen(services) { setScreen<FerrumVerticalSliceScreen>() })
         addScreen(PresentationSettingsScreen(
             services,
             onLegalRequested = { setScreen<LegalInformationScreen>() },
-            onBack = { setScreen<PresentationGameplayScreen>() },
+            onBack = { setScreen<FerrumVerticalSliceScreen>() },
         ))
         addScreen(LegalInformationScreen(services) { setScreen<PresentationSettingsScreen>() })
-        addScreen(RewardedAdsScreen(services) { setScreen<PresentationGameplayScreen>() })
+        addScreen(RewardedAdsScreen(services) { setScreen<FerrumVerticalSliceScreen>() })
         addScreen(PlanetTransferScreen(
             services,
-            onFerrumBack = { setScreen<PresentationGameplayScreen>() },
+            onFerrumBack = { setScreen<FerrumVerticalSliceScreen>() },
             onCryosReady = { setScreen<CryosFrontierGatewayScreen>() },
         ))
         addScreen(CryosFrontierGatewayScreen(
