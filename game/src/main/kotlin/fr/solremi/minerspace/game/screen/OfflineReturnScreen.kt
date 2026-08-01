@@ -8,20 +8,17 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
+import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.utils.ScreenUtils
 import com.badlogic.gdx.utils.viewport.ExtendViewport
-import fr.solremi.minerspace.data.assembly.AssemblyContentLoader
-import fr.solremi.minerspace.data.economy.CoreEconomyContentLoader
-import fr.solremi.minerspace.data.refining.RefiningContentLoader
-import fr.solremi.minerspace.data.save.ManufacturingSnapshotCodec
-import fr.solremi.minerspace.data.save.ManufacturingStateMigrator
-import fr.solremi.minerspace.domain.assembly.AssemblyEngine
-import fr.solremi.minerspace.domain.economy.CoreEconomyEngine
-import fr.solremi.minerspace.domain.refining.RefiningEngine
+import fr.solremi.minerspace.data.ads.ContextualRewardedAdCoordinator
+import fr.solremi.minerspace.data.ads.ContextualRewardedResult
+import fr.solremi.minerspace.data.ads.EntitlementConsumptionResult
+import fr.solremi.minerspace.data.offline.OfflineReturnCoordinator
+import fr.solremi.minerspace.data.offline.OfflineReturnReport
+import fr.solremi.minerspace.data.offline.OfflineReturnSession
+import fr.solremi.minerspace.domain.ads.RewardType
 import fr.solremi.minerspace.domain.services.GameServices
-import fr.solremi.minerspace.domain.services.SaveWriteStatus
-import fr.solremi.minerspace.simulation.offline.OfflineProgressEngine
-import fr.solremi.minerspace.simulation.offline.OfflineProgressReport
 import ktx.app.KtxScreen
 import kotlin.math.max
 
@@ -36,20 +33,33 @@ class OfflineReturnScreen(
     private val titleFont = BitmapFont().apply { data.setScale(1.15f) }
     private val font = BitmapFont().apply { data.setScale(0.82f) }
     private val smallFont = BitmapFont().apply { data.setScale(0.70f) }
+    private val offline = OfflineReturnCoordinator(services)
+    private val contextualAds = ContextualRewardedAdCoordinator(services)
+
+    private var session: OfflineReturnSession = offline.loadAndApplyStandard()
     private var continued = false
-    private val preparation = prepareOfflineProgress()
+    private var adBusy = false
+    private var adAvailable = false
+    private var transactionBlocked = false
+    private var message = ""
 
     private val input = object : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-            val point = com.badlogic.gdx.math.Vector2(screenX.toFloat(), screenY.toFloat())
+            val point = Vector2(screenX.toFloat(), screenY.toFloat())
             viewport.unproject(point)
-            if (layout().continueButton.contains(point)) continueToGame()
+            val layout = layout()
+            when {
+                layout.adButton.contains(point) -> startOfflineDoubleAd()
+                layout.continueButton.contains(point) && !transactionBlocked && !adBusy -> continueToGame()
+            }
             return true
         }
     }
 
     override fun show() {
-        if (!preparation.shouldShow) {
+        applyPendingOfflineDouble()
+        refreshAdAvailability()
+        if (!session.shouldShow) {
             Gdx.app.postRunnable(::continueToGame)
         } else {
             Gdx.input.inputProcessor = input
@@ -65,7 +75,7 @@ class OfflineReturnScreen(
     }
 
     override fun render(delta: Float) {
-        if (!preparation.shouldShow) return
+        if (!session.shouldShow) return
         ScreenUtils.clear(BACKGROUND)
         viewport.apply()
         camera.update()
@@ -79,15 +89,8 @@ class OfflineReturnScreen(
         shapes.rect(layout.panel.x, layout.panel.y, layout.panel.width, layout.panel.height)
         shapes.color = ACCENT
         shapes.rect(layout.panel.x, layout.panel.y + layout.panel.height - 5f, layout.panel.width, 5f)
-        shapes.color = BUTTON
-        shapes.rect(
-            layout.continueButton.x,
-            layout.continueButton.y,
-            layout.continueButton.width,
-            layout.continueButton.height,
-        )
-        shapes.color = ACCENT
-        shapes.rect(layout.continueButton.x, layout.continueButton.y, layout.continueButton.width, 4f)
+        drawButton(layout.adButton, adAvailable && !adBusy && !transactionBlocked, REWARD)
+        drawButton(layout.continueButton, !transactionBlocked && !adBusy, ACCENT)
         shapes.end()
 
         batch.projectionMatrix = camera.combined
@@ -96,93 +99,134 @@ class OfflineReturnScreen(
         titleFont.draw(batch, "RETOUR SUR FERRUM DELTA", layout.panel.x + 22f, layout.panel.y + layout.panel.height - 28f)
         font.color = TEXT
         smallFont.color = MUTED
-        val lines = preparation.lines()
         var y = layout.panel.y + layout.panel.height - 66f
-        lines.forEachIndexed { index, line ->
+        lines().forEachIndexed { index, line ->
             (if (index == 0) font else smallFont).draw(batch, line, layout.panel.x + 22f, y)
             y -= if (index == 0) 28f else 22f
         }
+        smallFont.color = TEXT
+        smallFont.draw(
+            batch,
+            if (session.doubled) "PRODUCTION DOUBLÉE" else if (adBusy) "CHARGEMENT..." else "PUB · DOUBLER",
+            layout.adButton.x + 10f,
+            layout.adButton.y + 30f,
+        )
         font.color = TEXT
         font.draw(batch, "CONTINUER", layout.continueButton.x + 25f, layout.continueButton.y + 31f)
         batch.end()
     }
 
-    override fun dispose() {
-        hide()
-        shapes.dispose()
-        batch.dispose()
-        titleFont.dispose()
-        font.dispose()
-        smallFont.dispose()
+    private fun drawButton(rect: Rectangle, enabled: Boolean, accent: Color) {
+        shapes.color = if (enabled) BUTTON else DISABLED
+        shapes.rect(rect.x, rect.y, rect.width, rect.height)
+        shapes.color = if (enabled) accent else BORDER
+        shapes.rect(rect.x, rect.y, rect.width, 4f)
+    }
+
+    private fun startOfflineDoubleAd() {
+        val scopeId = session.scopeId ?: return
+        if (!adAvailable || adBusy || transactionBlocked || session.doubled) return
+        adBusy = true
+        message = "Publicité facultative en cours"
+        contextualAds.watch(
+            ContextualRewardedAdCoordinator.OFFLINE_DOUBLE_OFFER,
+            scopeId,
+        ) { result ->
+            Gdx.app.postRunnable {
+                adBusy = false
+                when (result) {
+                    is ContextualRewardedResult.Granted -> applyPendingOfflineDouble()
+                    is ContextualRewardedResult.Rejected -> {
+                        message = result.code
+                        refreshAdAvailability()
+                        services.haptic.warning()
+                    }
+                    is ContextualRewardedResult.Cancelled -> {
+                        message = "Publicité fermée · progression normale conservée"
+                        refreshAdAvailability()
+                    }
+                    is ContextualRewardedResult.PersistenceFailed -> {
+                        message = "Récompense reçue · reprise automatique au prochain affichage"
+                        services.haptic.warning()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun applyPendingOfflineDouble() {
+        if (session.doubled || !contextualAds.hasEntitlement(RewardType.OFFLINE_DOUBLE)) return
+        val doubled = offline.doubled(session) ?: return
+        val state = doubled.currentState ?: return
+        val scopeId = doubled.scopeId ?: return
+        val payload = offline.encode(state, doubled.nowEpochMillis)
+        when (
+            contextualAds.consumeWithPayload(
+                rewardType = RewardType.OFFLINE_DOUBLE,
+                amount = 1L,
+                transactionId = "consume_offline_double_$scopeId",
+                externalPayload = payload,
+            )
+        ) {
+            EntitlementConsumptionResult.Committed -> {
+                session = doubled
+                transactionBlocked = false
+                message = "Production hors ligne doublée, plafonnée à 8 heures"
+                services.haptic.success()
+                refreshAdAvailability()
+            }
+            is EntitlementConsumptionResult.Rejected -> {
+                message = "Bonus hors ligne indisponible"
+                refreshAdAvailability()
+            }
+            is EntitlementConsumptionResult.Pending -> {
+                transactionBlocked = true
+                message = "Doublement interrompu · redémarrez pour reprendre"
+                services.haptic.warning()
+            }
+        }
+    }
+
+    private fun refreshAdAvailability() {
+        val scopeId = session.scopeId
+        adAvailable = scopeId != null && !session.doubled && session.report?.hasMeaningfulProgress == true &&
+            contextualAds.availability(
+                ContextualRewardedAdCoordinator.OFFLINE_DOUBLE_OFFER,
+                scopeId,
+            ).available
     }
 
     private fun continueToGame() {
-        if (continued) return
+        if (continued || transactionBlocked || adBusy) return
         continued = true
         hide()
         onContinue()
     }
 
-    private fun prepareOfflineProgress(): Preparation {
-        val payload = services.save.loadLatest() ?: return Preparation.empty()
-        return runCatching {
-            val economyDefinitions = CoreEconomyContentLoader().load(services.content)
-            val refiningDefinitions = RefiningContentLoader().load(services.content)
-            val assemblyDefinitions = AssemblyContentLoader().load(services.content)
-            require(refiningDefinitions.contentVersion == economyDefinitions.contentVersion)
-            require(assemblyDefinitions.contentVersion == economyDefinitions.contentVersion)
-
-            val codec = ManufacturingSnapshotCodec()
-            val decoded = codec.decodeWithMetadata(payload)
-            val migrated = ManufacturingStateMigrator(
-                economyDefinitions,
-                refiningDefinitions,
-                assemblyDefinitions,
-            ).migrate(decoded.state)
-            val economy = CoreEconomyEngine(economyDefinitions)
-            val refiner = RefiningEngine(
-                refiningDefinitions,
-                economyDefinitions.resources.mapValues { it.value.storageCapacity },
-            )
-            val assembler = AssemblyEngine(
-                assemblyDefinitions,
-                economyDefinitions.resources.mapValues { it.value.storageCapacity },
-            )
-            economy.requireValid(migrated.state.economy)
-            val now = services.clock.nowEpochMillis().coerceAtLeast(0L)
-            val offline = OfflineProgressEngine(economy, refiner, assembler).apply(
-                state = migrated.state,
-                savedAtEpochMillis = payload.savedAtEpochMillis,
-                nowEpochMillis = now,
-            )
-            val rewrite = decoded.requiresRewrite || migrated.changed ||
-                payload.contentVersion != economyDefinitions.contentVersion ||
-                payload.recoveredFromFallback || offline.report.simulatedSeconds > 0L
-            val writeSucceeded = !rewrite || services.save.save(
-                codec.encode(
-                    offline.state,
-                    economyDefinitions.contentVersion,
-                    savedAtEpochMillis = now,
-                ),
-            ) == SaveWriteStatus.WRITTEN
-            Preparation(
-                report = offline.report,
-                recoveredOlderSnapshot = payload.recoveredFromFallback,
-                migrated = decoded.requiresRewrite || migrated.changed ||
-                    payload.contentVersion != economyDefinitions.contentVersion,
-                saveFailed = !writeSucceeded,
-                unrecoverable = false,
-            )
-        }.getOrElse {
-            services.save.clear()
-            Preparation(
-                report = null,
-                recoveredOlderSnapshot = false,
-                migrated = false,
-                saveFailed = false,
-                unrecoverable = true,
+    private fun lines(): List<String> {
+        if (session.unrecoverable) {
+            return listOf(
+                "Aucune sauvegarde valide n’a pu être restaurée.",
+                "Une nouvelle partie sera utilisée.",
+                "Aucune ressource partielle n’a été attribuée.",
             )
         }
+        val output = mutableListOf<String>()
+        session.report?.let { report ->
+            output += "Absence : ${formatDuration(report.absentSeconds)} · simulée : ${formatDuration(report.simulatedSeconds)}"
+            output += "Extraction hors ligne : ${report.extractedByResource.values.sum()} unité(s)"
+            output += "Productions terminées : RF ${report.refiningCompleted} · AS ${report.assemblyCompleted}"
+            if (report.depletedDepositIds.isNotEmpty()) output += "${report.depletedDepositIds.size} gisement(s) épuisé(s)"
+            if (report.storageBlockedDepositIds.isNotEmpty()) output += "Production arrêtée par stockage ou transport plein"
+            if (report.capped) output += "Progression plafonnée à 8 heures"
+            if (report.clockMovedBackward) output += "Horloge modifiée : aucun gain excessif appliqué"
+        }
+        if (session.doubled) output += "Bonus facultatif appliqué : production doublée"
+        if (session.recoveredOlderSnapshot) output += "La dernière copie valide de la sauvegarde a été restaurée"
+        if (session.migrated) output += "Sauvegarde mise à niveau vers le format actuel"
+        if (session.saveFailed) output += "La progression est chargée, mais sa réécriture a échoué"
+        if (message.isNotBlank()) output += message
+        return output.ifEmpty { listOf("Progression restaurée") }
     }
 
     private fun layout(): ReturnLayout {
@@ -204,69 +248,41 @@ class OfflineReturnScreen(
             panelWidth,
             panelHeight,
         )
-        val button = Rectangle(panel.x + panel.width - 154f, panel.y + 18f, 132f, 48f)
-        return ReturnLayout(panel, button)
+        val continueButton = Rectangle(panel.x + panel.width - 154f, panel.y + 18f, 132f, 48f)
+        val adButton = Rectangle(continueButton.x - 176f, panel.y + 18f, 164f, 48f)
+        return ReturnLayout(panel, adButton, continueButton)
+    }
+
+    override fun dispose() {
+        hide()
+        shapes.dispose()
+        batch.dispose()
+        titleFont.dispose()
+        font.dispose()
+        smallFont.dispose()
     }
 
     private data class ReturnLayout(
         val panel: Rectangle,
+        val adButton: Rectangle,
         val continueButton: Rectangle,
     )
 
-    private data class Preparation(
-        val report: OfflineProgressReport?,
-        val recoveredOlderSnapshot: Boolean,
-        val migrated: Boolean,
-        val saveFailed: Boolean,
-        val unrecoverable: Boolean,
-    ) {
-        val shouldShow: Boolean
-            get() = unrecoverable || recoveredOlderSnapshot || migrated || saveFailed ||
-                report?.hasMeaningfulProgress == true
-
-        fun lines(): List<String> {
-            if (unrecoverable) {
-                return listOf(
-                    "Aucune sauvegarde valide n’a pu être restaurée.",
-                    "Une nouvelle partie sera utilisée.",
-                    "Aucune ressource partielle n’a été attribuée.",
-                )
-            }
-            val report = report
-            val output = mutableListOf<String>()
-            if (report != null) {
-                output += "Absence : ${formatDuration(report.absentSeconds)} · simulée : ${formatDuration(report.simulatedSeconds)}"
-                val extracted = report.extractedByResource.values.sum()
-                output += "Extraction hors ligne : $extracted unité(s)"
-                output += "Productions terminées : RF ${report.refiningCompleted} · AS ${report.assemblyCompleted}"
-                if (report.depletedDepositIds.isNotEmpty()) output += "${report.depletedDepositIds.size} gisement(s) épuisé(s)"
-                if (report.storageBlockedDepositIds.isNotEmpty()) output += "Production arrêtée par stockage ou transport plein"
-                if (report.capped) output += "Progression plafonnée à 8 heures"
-                if (report.clockMovedBackward) output += "Horloge modifiée : aucun gain excessif appliqué"
-            }
-            if (recoveredOlderSnapshot) output += "La dernière copie valide de la sauvegarde a été restaurée"
-            if (migrated) output += "Sauvegarde mise à niveau vers le format actuel"
-            if (saveFailed) output += "La progression est chargée, mais sa réécriture a échoué"
-            return output.ifEmpty { listOf("Progression restaurée") }
-        }
-
-        companion object {
-            fun empty(): Preparation = Preparation(null, false, false, false, false)
-
-            private fun formatDuration(seconds: Long): String = when {
-                seconds >= 3_600L -> "${seconds / 3_600L} h ${seconds % 3_600L / 60L} min"
-                seconds >= 60L -> "${seconds / 60L} min"
-                else -> "$seconds s"
-            }
-        }
-    }
-
     private companion object {
+        fun formatDuration(seconds: Long): String = when {
+            seconds >= 3_600L -> "${seconds / 3_600L} h ${seconds % 3_600L / 60L} min"
+            seconds >= 60L -> "${seconds / 60L} min"
+            else -> "$seconds s"
+        }
+
         val BACKGROUND = Color(0.008f, 0.014f, 0.035f, 1f)
         val PANEL_SHADOW = Color(0.005f, 0.008f, 0.018f, 1f)
         val PANEL = Color(0.035f, 0.075f, 0.13f, 1f)
         val BUTTON = Color(0.08f, 0.18f, 0.26f, 1f)
+        val DISABLED = Color(0.045f, 0.065f, 0.085f, 1f)
+        val BORDER = Color(0.16f, 0.20f, 0.24f, 1f)
         val ACCENT = Color(0.20f, 0.82f, 0.88f, 1f)
+        val REWARD = Color(0.30f, 0.90f, 0.64f, 1f)
         val TEXT = Color(0.90f, 0.96f, 1f, 1f)
         val MUTED = Color(0.61f, 0.72f, 0.82f, 1f)
     }
