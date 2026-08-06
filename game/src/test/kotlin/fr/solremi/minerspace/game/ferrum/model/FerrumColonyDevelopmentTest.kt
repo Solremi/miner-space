@@ -1,4 +1,4 @@
-package fr.solremi.minerspace.game.scene
+package fr.solremi.minerspace.game.ferrum.model
 
 import fr.solremi.minerspace.domain.assembly.AssemblyState
 import fr.solremi.minerspace.domain.assembly.ManufacturingGameState
@@ -16,17 +16,14 @@ class FerrumColonyDevelopmentTest {
 
     @Test
     fun `refined materials reveal industrial infrastructure`() {
-        assertEquals(
-            FerrumColonyStage.INDUSTRIAL,
-            development(refinedIron = 5L).stage,
-        )
+        assertEquals(FerrumColonyStage.INDUSTRIAL, development(refinedIron = 5L).stage)
     }
 
     @Test
     fun `one installed technology reveals the automated network`() {
         assertEquals(
             FerrumColonyStage.NETWORKED,
-            development(technologies = setOf(GameId.of("tech_extraction_protocol"))).stage,
+            development(technologies = setOf(FerrumIds.TECH_EXTRACTION)).stage,
         )
     }
 
@@ -36,7 +33,7 @@ class FerrumColonyDevelopmentTest {
             FerrumColonyStage.ORBITAL,
             development(
                 technologies = setOf(
-                    GameId.of("tech_extraction_protocol"),
+                    FerrumIds.TECH_EXTRACTION,
                     GameId.of("tech_quantum_sorting"),
                 ),
             ).stage,
@@ -53,10 +50,10 @@ class FerrumColonyDevelopmentTest {
         val state = ManufacturingGameState(
             economy = EconomyState(
                 inventory = mapOf(
-                    REFINED_IRON to refinedIron,
-                    REFINED_COPPER to refinedCopper,
-                    POWER_CELL to powerCells,
-                    SENSOR_ARRAY to sensors,
+                    FerrumIds.REFINED_IRON to refinedIron,
+                    FerrumIds.REFINED_COPPER to refinedCopper,
+                    FerrumIds.POWER_CELL to powerCells,
+                    FerrumIds.SENSOR_ARRAY to sensors,
                 ),
                 deposits = emptyMap(),
                 spaceDollars = 0L,
@@ -66,12 +63,5 @@ class FerrumColonyDevelopmentTest {
             assembly = AssemblyState(emptyList(), technologies, 1L),
         )
         return FerrumColonyDevelopment.from(state)
-    }
-
-    private companion object {
-        val REFINED_IRON = GameId.of("refined_iron_ingot")
-        val REFINED_COPPER = GameId.of("refined_copper_plate")
-        val POWER_CELL = GameId.of("component_power_cell")
-        val SENSOR_ARRAY = GameId.of("component_sensor_array")
     }
 }

@@ -1,5 +1,6 @@
 package fr.solremi.minerspace.game.ui
 
+import fr.solremi.minerspace.game.ferrum.text.FrenchFerrumText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -12,7 +13,7 @@ class FerrumPlayerHudTest {
         assertEquals(4, layout.primaryNavigation.size)
         assertEquals(
             listOf("EXPLORER", "FLOTTE", "MISSIONS", "MENU"),
-            FerrumPrimaryDestination.entries.map { it.label },
+            FerrumPrimaryDestination.entries.map(FrenchFerrumText::primaryDestination),
         )
         assertTrue(layout.primaryNavigation.all { it.width >= 48f && it.height >= 48f })
     }

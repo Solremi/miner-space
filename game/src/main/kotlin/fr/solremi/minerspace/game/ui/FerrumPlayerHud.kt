@@ -2,19 +2,19 @@ package fr.solremi.minerspace.game.ui
 
 import com.badlogic.gdx.math.Rectangle
 
-enum class FerrumPrimaryDestination(val label: String) {
-    EXPLORATION("EXPLORER"),
-    FLEET("FLOTTE"),
-    MISSIONS("MISSIONS"),
-    MENU("MENU"),
+enum class FerrumPrimaryDestination {
+    EXPLORATION,
+    FLEET,
+    MISSIONS,
+    MENU,
 }
 
-enum class FerrumSecondaryDestination(val label: String) {
-    STRATEGY("STRATÉGIE"),
-    ARCHIVES("ARCHIVES"),
-    SETTINGS("RÉGLAGES"),
-    TRANSFER("DÉPART"),
-    BONUS("BONUS"),
+enum class FerrumSecondaryDestination {
+    STRATEGY,
+    ARCHIVES,
+    SETTINGS,
+    TRANSFER,
+    BONUS,
 }
 
 data class FerrumPlayerHudLayout(
@@ -73,18 +73,18 @@ object FerrumPlayerHudLayoutCalculator {
         )
 
         val secondary = if (menuOpen) {
-            val widthMenu = 132f
+            val menuWidth = 132f
             val gap = 4f
             val columns = 2
-            val totalWidth = widthMenu * columns + gap
+            val totalWidth = menuWidth * columns + gap
             val startX = safe.right - totalWidth
             FerrumSecondaryDestination.entries.mapIndexed { index, _ ->
                 val column = index % columns
                 val row = index / columns
                 Rectangle(
-                    startX + column * (widthMenu + gap),
+                    startX + column * (menuWidth + gap),
                     topBar.y - (row + 1) * (MIN_TOUCH_SIZE + gap),
-                    widthMenu,
+                    menuWidth,
                     MIN_TOUCH_SIZE,
                 )
             }
