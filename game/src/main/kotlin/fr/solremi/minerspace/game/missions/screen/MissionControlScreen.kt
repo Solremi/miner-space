@@ -36,7 +36,6 @@ import fr.solremi.minerspace.domain.services.SaveWriteStatus
 import fr.solremi.minerspace.domain.strategy.StrategyState
 import fr.solremi.minerspace.shared.GameId
 import ktx.app.KtxScreen
-import kotlin.math.max
 
 class MissionControlScreen(
     private val services: GameServices,
@@ -70,10 +69,10 @@ class MissionControlScreen(
     private var robots: RobotAutomationState? = null
     private var strategy: StrategyState? = null
     private var snapshot = snapshot()
-    private var tab = Tab.OBJECTIVES
+    private var tab = MissionControlTab.OBJECTIVES
     private var selected = 0
     private var message = "Objectifs synchronisés"
-    private var currentLayout: Layout? = null
+    private var currentLayout: MissionControlLayout? = null
     private var persistenceBlocked = false
 
     private val lifecycle = LifecycleObserver {
@@ -106,7 +105,7 @@ class MissionControlScreen(
         ScreenUtils.clear(BACKGROUND)
         viewport.apply()
         camera.update()
-        val current = layout()
+        val current = MissionControlLayoutCalculator.calculate(viewport.worldWidth, viewport.worldHeight)
         currentLayout = current
         drawPanels(current)
         drawText(current)
@@ -137,9 +136,8 @@ class MissionControlScreen(
             runCatching {
                 require(payload.contentVersion == definitions.contentVersion)
                 progressionCodec.decode(payload)
-            }.onFailure {
-                services.logger.warning(TAG, "Unable to load progression state.", it)
-            }.getOrNull()
+            }.onFailure { services.logger.warning(TAG, "Unable to load progression state.", it) }
+                .getOrNull()
         } ?: engine.initialState()
 
         snapshot = snapshot()
@@ -169,7 +167,7 @@ class MissionControlScreen(
 
     private fun now(): Long = services.clock.nowEpochMillis().coerceAtLeast(0L)
 
-    private fun drawPanels(layout: Layout) {
+    private fun drawPanels(layout: MissionControlLayout) {
         shapes.projectionMatrix = camera.combined
         shapes.begin(ShapeRenderer.ShapeType.Filled)
         shapes.color = TOP
@@ -185,38 +183,21 @@ class MissionControlScreen(
         }
         button(layout.tab, !persistenceBlocked)
         button(layout.action, !persistenceBlocked && actionAvailable())
-        button(layout.pin, !persistenceBlocked && tab == Tab.OBJECTIVES && rows().isNotEmpty())
+        button(layout.pin, !persistenceBlocked && tab == MissionControlTab.OBJECTIVES && rows().isNotEmpty())
         button(layout.back, !persistenceBlocked)
         shapes.end()
     }
 
-    private fun drawText(layout: Layout) {
+    private fun drawText(layout: MissionControlLayout) {
         batch.projectionMatrix = camera.combined
         batch.begin()
         font.color = TEXT
         small.color = MUTED
         font.draw(batch, "MISSIONS · ${tab.label}", layout.top.x + 12f, layout.top.y + layout.top.height - 14f)
-        small.draw(
-            batch,
-            "${main.economy.spaceDollars} SD · ${engine.objectiveViews(progression, snapshot).size} objectifs actifs",
-            layout.top.x + 12f,
-            layout.top.y + 15f,
-        )
+        small.draw(batch, "${main.economy.spaceDollars} SD · ${engine.objectiveViews(progression, snapshot).size} objectifs actifs", layout.top.x + 12f, layout.top.y + 15f)
         val tutorial = engine.tutorialProgress(progression, snapshot)
-        font.draw(
-            batch,
-            tutorial.step?.let { "${it.phaseLabel} · ${it.actionKey}" }
-                ?: "Tutoriel de la première semaine terminé",
-            layout.tutorial.x + 12f,
-            layout.tutorial.y + layout.tutorial.height - 14f,
-        )
-        small.draw(
-            batch,
-            tutorial.step?.let { "${tutorial.current}/${it.target} · reprise automatique après fermeture" }
-                ?: "${tutorial.completed}/${tutorial.total} étapes",
-            layout.tutorial.x + 12f,
-            layout.tutorial.y + 15f,
-        )
+        font.draw(batch, tutorial.step?.let { "${it.phaseLabel} · ${it.actionKey}" } ?: "Tutoriel de la première semaine terminé", layout.tutorial.x + 12f, layout.tutorial.y + layout.tutorial.height - 14f)
+        small.draw(batch, tutorial.step?.let { "${tutorial.current}/${it.target} · reprise automatique après fermeture" } ?: "${tutorial.completed}/${tutorial.total} étapes", layout.tutorial.x + 12f, layout.tutorial.y + 15f)
         rows().forEachIndexed { index, item ->
             val row = layout.rows[index]
             font.draw(batch, item.title, row.x + 14f, row.y + row.height - 13f)
@@ -230,40 +211,37 @@ class MissionControlScreen(
         batch.end()
     }
 
-    private fun rows(): List<RowItem> = when (tab) {
-        Tab.OBJECTIVES -> engine.objectiveViews(progression, snapshot).take(4).map { view ->
-            RowItem(
+    private fun rows(): List<MissionControlRowItem> = when (tab) {
+        MissionControlTab.OBJECTIVES -> engine.objectiveViews(progression, snapshot).take(4).map { view ->
+            MissionControlRowItem(
                 view.definition.id.value,
                 view.definition.titleKey,
-                "${view.definition.kind.name} · ${view.current}/${view.definition.target} · " +
-                    "${view.definition.rewardSpaceDollars} SD${if (view.completed) " · À RÉCUPÉRER" else ""}",
+                "${view.definition.kind.name} · ${view.current}/${view.definition.target} · ${view.definition.rewardSpaceDollars} SD${if (view.completed) " · À RÉCUPÉRER" else ""}",
             )
         }
-        Tab.CONTRACTS -> engine.activeContracts(progression, snapshot).map { view ->
-            RowItem(
+        MissionControlTab.CONTRACTS -> engine.activeContracts(progression, snapshot).map { view ->
+            MissionControlRowItem(
                 view.occurrenceId,
                 view.definition.titleKey,
-                "${view.definition.tier.name} · ${view.currentInventory}/${view.definition.quantity} · " +
-                    "${view.definition.rewardSpaceDollars} SD${if (!view.unlocked) " · VERROUILLÉ" else if (view.deliverable) " · LIVRABLE" else ""}",
+                "${view.definition.tier.name} · ${view.currentInventory}/${view.definition.quantity} · ${view.definition.rewardSpaceDollars} SD${if (!view.unlocked) " · VERROUILLÉ" else if (view.deliverable) " · LIVRABLE" else ""}",
             )
         }
-        Tab.CODEX -> codexRows()
+        MissionControlTab.CODEX -> codexRows()
     }
 
-    private fun codexRows(): List<RowItem> {
+    private fun codexRows(): List<MissionControlRowItem> {
         val entries = engine.visibleCodexEntries(progression, snapshot).take(3).map { view ->
-            RowItem(
+            MissionControlRowItem(
                 "entry:${view.definition.id.value}",
                 view.definition.titleKey,
                 "${view.definition.category.name} · ${if (view.discovered) "DÉCOUVERT" else "${view.current}/${view.definition.target}"}",
             )
         }
         val collections = engine.collectionViews(progression).take(2).map { view ->
-            RowItem(
+            MissionControlRowItem(
                 "collection:${view.definition.id.value}",
                 view.definition.titleKey,
-                "COLLECTION · ${view.discoveredEntries}/${view.definition.entryIds.size}" +
-                    if (view.claimable) " · RÉCOMPENSE" else "",
+                "COLLECTION · ${view.discoveredEntries}/${view.definition.entryIds.size}${if (view.claimable) " · RÉCOMPENSE" else ""}",
             )
         }
         return (collections + entries).take(4)
@@ -272,13 +250,13 @@ class MissionControlScreen(
     private fun actionAvailable(): Boolean {
         val item = rows().getOrNull(selected) ?: return false
         return when (tab) {
-            Tab.OBJECTIVES -> engine.objectiveViews(progression, snapshot)
+            MissionControlTab.OBJECTIVES -> engine.objectiveViews(progression, snapshot)
                 .find { it.definition.id.value == item.id }
                 ?.claimable == true
-            Tab.CONTRACTS -> engine.activeContracts(progression, snapshot)
+            MissionControlTab.CONTRACTS -> engine.activeContracts(progression, snapshot)
                 .find { it.occurrenceId == item.id }
                 ?.deliverable == true
-            Tab.CODEX -> item.id.startsWith("collection:") && engine.collectionViews(progression)
+            MissionControlTab.CODEX -> item.id.startsWith("collection:") && engine.collectionViews(progression)
                 .find { it.definition.id.value == item.id.removePrefix("collection:") }
                 ?.claimable == true
         }
@@ -287,9 +265,9 @@ class MissionControlScreen(
     private fun action() {
         val item = rows().getOrNull(selected) ?: return
         val result = when (tab) {
-            Tab.OBJECTIVES -> engine.claimMission(progression, GameId.of(item.id), snapshot)
-            Tab.CONTRACTS -> engine.deliverContract(progression, item.id, snapshot)
-            Tab.CODEX -> if (item.id.startsWith("collection:")) {
+            MissionControlTab.OBJECTIVES -> engine.claimMission(progression, GameId.of(item.id), snapshot)
+            MissionControlTab.CONTRACTS -> engine.deliverContract(progression, item.id, snapshot)
+            MissionControlTab.CODEX -> if (item.id.startsWith("collection:")) {
                 engine.claimCollection(progression, GameId.of(item.id.removePrefix("collection:")))
             } else {
                 return
@@ -301,13 +279,7 @@ class MissionControlScreen(
     private fun applyTransaction(result: ProgressionCommandResult) {
         when (result) {
             is ProgressionCommandResult.Rejected -> {
-                message = when (result.code) {
-                    "mission_incomplete" -> "Objectif incomplet"
-                    "contract_locked" -> "Contrat pas encore disponible"
-                    "contract_inventory_missing" -> "Stock insuffisant"
-                    "collection_incomplete" -> "Collection incomplète"
-                    else -> result.code
-                }
+                message = MissionControlText.rejection(result.code)
                 services.haptic.warning()
             }
             is ProgressionCommandResult.Applied -> {
@@ -321,16 +293,12 @@ class MissionControlScreen(
                     }
                     inventory[id] = next
                 }
-                val dollars = Math.addExact(
-                    main.economy.spaceDollars,
-                    result.transaction.delta.spaceDollarsDelta,
-                )
+                val dollars = Math.addExact(main.economy.spaceDollars, result.transaction.delta.spaceDollarsDelta)
                 if (dollars < 0L) {
                     message = "SpaceDollars insuffisants"
                     services.haptic.warning()
                     return
                 }
-
                 val nextMain = main.copy(
                     economy = main.economy.copy(
                         inventory = inventory,
@@ -354,17 +322,11 @@ class MissionControlScreen(
                     services.haptic.warning()
                     return
                 }
-
                 main = nextMain
                 progression = nextProgression
                 snapshot = nextSnapshot
                 selected = selected.coerceAtMost((rows().size - 1).coerceAtLeast(0))
-                message = when (result.transaction.reason) {
-                    "deliver_contract" -> "Contrat livré"
-                    "claim_collection" -> "Collection complétée"
-                    "claim_achievement" -> "Exploit validé"
-                    else -> "Mission validée"
-                }
+                message = MissionControlText.success(result.transaction.reason)
                 services.haptic.success()
             }
         }
@@ -372,7 +334,7 @@ class MissionControlScreen(
 
     private fun pin() {
         val item = rows().getOrNull(selected) ?: return
-        if (tab != Tab.OBJECTIVES) return
+        if (tab != MissionControlTab.OBJECTIVES) return
         val previous = progression
         val next = engine.selectObjective(progression, GameId.of(item.id))
         if (saveProgression(next)) {
@@ -402,7 +364,7 @@ class MissionControlScreen(
         }
         when {
             current.tab.contains(point) -> {
-                tab = Tab.entries[(tab.ordinal + 1) % Tab.entries.size]
+                tab = MissionControlTab.entries[(tab.ordinal + 1) % MissionControlTab.entries.size]
                 selected = 0
                 services.haptic.impact()
             }
@@ -410,37 +372,6 @@ class MissionControlScreen(
             current.pin.contains(point) -> pin()
             current.back.contains(point) -> onBack()
         }
-    }
-
-    private fun layout(): Layout {
-        val width = viewport.worldWidth
-        val height = viewport.worldHeight
-        val scaleX = width / Gdx.graphics.width.coerceAtLeast(1)
-        val scaleY = height / Gdx.graphics.height.coerceAtLeast(1)
-        val left = Gdx.graphics.safeInsetLeft * scaleX + 8f
-        val right = max(left + 1f, width - Gdx.graphics.safeInsetRight * scaleX - 8f)
-        val bottom = Gdx.graphics.safeInsetBottom * scaleY + 8f
-        val top = max(bottom + 1f, height - Gdx.graphics.safeInsetTop * scaleY - 8f)
-        val topBar = Rectangle(left, top - 50f, right - left, 50f)
-        val tutorial = Rectangle(left, topBar.y - 62f, right - left, 56f)
-        val back = Rectangle(right - 92f, bottom, 92f, 48f)
-        val pin = Rectangle(back.x - 92f, bottom, 86f, 48f)
-        val action = Rectangle(pin.x - 98f, bottom, 92f, 48f)
-        val tab = Rectangle(action.x - 94f, bottom, 88f, 48f)
-        val message = Rectangle(left, bottom + 50f, right - left, 22f)
-        val listBottom = message.y + message.height + 4f
-        val listTop = tutorial.y - 6f
-        val gap = 5f
-        val rowHeight = ((listTop - listBottom - gap * 3f) / 4f).coerceAtLeast(38f)
-        val rows = (0 until 4).map { index ->
-            Rectangle(
-                left,
-                listTop - (index + 1) * rowHeight - index * gap,
-                right - left,
-                rowHeight,
-            )
-        }
-        return Layout(topBar, tutorial, rows, message, tab, action, pin, back)
     }
 
     private fun button(rect: Rectangle, enabled: Boolean) {
@@ -462,29 +393,6 @@ class MissionControlScreen(
         font.dispose()
         small.dispose()
     }
-
-    private enum class Tab(val label: String) {
-        OBJECTIVES("OBJECTIFS"),
-        CONTRACTS("CONTRATS"),
-        CODEX("CODEX"),
-    }
-
-    private data class RowItem(
-        val id: String,
-        val title: String,
-        val detail: String,
-    )
-
-    private data class Layout(
-        val top: Rectangle,
-        val tutorial: Rectangle,
-        val rows: List<Rectangle>,
-        val message: Rectangle,
-        val tab: Rectangle,
-        val action: Rectangle,
-        val pin: Rectangle,
-        val back: Rectangle,
-    )
 
     private companion object {
         const val TAG = "MissionControlScreen"
