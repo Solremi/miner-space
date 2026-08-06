@@ -102,12 +102,14 @@ class ManufacturingCoordinatorTest {
         seed(save)
         val coordinator = coordinator(save)
         val before = coordinator.state
+        val savedAtBefore = coordinator.lastSuccessfulSaveAtEpochMillis
         save.failWrites = true
 
         val result = coordinator.sellAll()
 
         assertTrue(result is ManufacturingActionResult.PersistenceFailed)
         assertEquals(before, coordinator.state)
+        assertEquals(savedAtBefore, coordinator.lastSuccessfulSaveAtEpochMillis)
         assertEquals(
             before,
             ManufacturingSnapshotCodec().decode(save.loadLatest()!!),
@@ -115,7 +117,7 @@ class ManufacturingCoordinatorTest {
     }
 
     @Test
-    fun `successful save publishes the candidate state once`() {
+    fun `successful save publishes the candidate state and freshness`() {
         val save = MemorySaveService()
         seed(save)
         val coordinator = coordinator(save)
@@ -125,6 +127,8 @@ class ManufacturingCoordinatorTest {
         assertTrue(result is ManufacturingActionResult.Applied)
         assertEquals(0L, coordinator.state.economy.inventory.getValue(raw))
         assertEquals(20L, coordinator.state.economy.spaceDollars)
+        assertEquals(FixedClock.nowEpochMillis(), coordinator.lastSuccessfulSaveAtEpochMillis)
+        assertEquals(0L, coordinator.secondsSinceLastSave())
         assertEquals(
             coordinator.state,
             ManufacturingSnapshotCodec().decode(save.loadLatest()!!),
