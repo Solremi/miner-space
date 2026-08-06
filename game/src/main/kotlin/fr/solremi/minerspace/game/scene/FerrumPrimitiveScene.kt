@@ -148,7 +148,7 @@ class FerrumPrimitiveScene {
         nowMillis: Long,
         budget: RuntimePerformanceBudget,
         productionActive: Boolean,
-        developmentStage: FerrumColonyStage = FerrumColonyStage.OUTPOST,
+        developmentStage: FerrumColonyStage = FerrumColonyVisualState.stage,
     ) {
         val seconds = nowMillis.coerceAtLeast(0L) / 1_000f
         val visibleRobots = minOf(robots.size, budget.maxVisibleRobots)
