@@ -17,6 +17,7 @@ import com.badlogic.gdx.math.collision.BoundingBox
 import com.badlogic.gdx.math.collision.Ray
 import fr.solremi.minerspace.game.performance.RuntimePerformanceBudget
 import kotlin.math.floor
+import kotlin.math.sin
 
 enum class FerrumNodeId {
     BASE,
@@ -67,8 +68,8 @@ object FerrumSceneSpec {
 }
 
 /**
- * Temporary 2.5D vertical slice made only from generated primitives.
- * It deliberately owns no external texture, sound or GLB dependency.
+ * Procedural 2.5D colony scene. The primitive geometry is intentionally kept
+ * lightweight, while the visible infrastructure evolves with player progress.
  */
 class FerrumPrimitiveScene {
     private val modelBatch = ModelBatch()
@@ -80,10 +81,12 @@ class FerrumPrimitiveScene {
     private val builder = ModelBuilder()
     private val ownedModels = mutableListOf<Model>()
     private val staticInstances = mutableListOf<ModelInstance>()
+    private val developmentInstances = linkedMapOf<FerrumColonyStage, List<ModelInstance>>()
     private val nodeInstances = linkedMapOf<FerrumNodeId, ModelInstance>()
     private val robots = mutableListOf<RobotPrimitive>()
     private val crates = mutableListOf<ModelInstance>()
     private val highlight: ModelInstance
+    private val orbitalBeacon: ModelInstance
     private var selected: FerrumNodeId? = null
 
     init {
@@ -114,6 +117,10 @@ class FerrumPrimitiveScene {
             cylinder(6.8f, 1.0f, 5.0f, 1.1f, 2.0f, CRYSTAL)
 
         staticInstances += nodeInstances.values
+        developmentInstances[FerrumColonyStage.INDUSTRIAL] = buildIndustrialStage()
+        developmentInstances[FerrumColonyStage.NETWORKED] = buildNetworkedStage()
+        developmentInstances[FerrumColonyStage.ORBITAL] = buildOrbitalStage()
+
         repeat(4) { index ->
             val body = box(-1.5f + index, 0.45f, 2.5f, 0.72f, 0.62f, 0.94f, ROBOT)
             val head = box(-1.5f + index, 0.90f, 2.5f, 0.48f, 0.32f, 0.52f, WINDOW)
@@ -123,6 +130,7 @@ class FerrumPrimitiveScene {
             crates += box(0f, 0.32f, 0f, 0.48f, 0.48f, 0.48f, CRATE)
         }
         highlight = cylinder(0f, 0.07f, 0f, 1.7f, 0.10f, SELECTION)
+        orbitalBeacon = cylinder(0f, 5.7f, 5.7f, 0.36f, 1.4f, BEACON)
     }
 
     fun select(id: FerrumNodeId?) {
@@ -140,6 +148,7 @@ class FerrumPrimitiveScene {
         nowMillis: Long,
         budget: RuntimePerformanceBudget,
         productionActive: Boolean,
+        developmentStage: FerrumColonyStage = FerrumColonyStage.OUTPOST,
     ) {
         val seconds = nowMillis.coerceAtLeast(0L) / 1_000f
         val visibleRobots = minOf(robots.size, budget.maxVisibleRobots)
@@ -147,6 +156,9 @@ class FerrumPrimitiveScene {
 
         modelBatch.begin(camera)
         modelBatch.render(staticInstances, environment)
+        developmentInstances.forEach { (stage, instances) ->
+            if (developmentStage.includes(stage)) modelBatch.render(instances, environment)
+        }
 
         repeat(visibleRobots) { index ->
             val phase = (seconds * (0.12f + index * 0.012f) + index * 0.23f) % 1f
@@ -166,6 +178,12 @@ class FerrumPrimitiveScene {
             modelBatch.render(crate, environment)
         }
 
+        if (developmentStage.includes(FerrumColonyStage.ORBITAL)) {
+            val pulse = 1f + sin(seconds * 2.8f) * 0.12f
+            orbitalBeacon.transform.setToTranslation(0f, 5.7f, 5.7f).scale(pulse, 1f, pulse)
+            modelBatch.render(orbitalBeacon, environment)
+        }
+
         selected?.let { id ->
             val node = FerrumSceneSpec.nodes.first { it.id == id }
             highlight.transform.setToTranslation(node.position.x, 0.07f, node.position.z)
@@ -179,6 +197,35 @@ class FerrumPrimitiveScene {
         ownedModels.distinct().forEach(Model::dispose)
         ownedModels.clear()
     }
+
+    private fun buildIndustrialStage(): List<ModelInstance> = listOf(
+        cylinder(3.2f, 0.8f, 2.8f, 1.25f, 1.6f, STORAGE),
+        cylinder(4.6f, 0.8f, 2.8f, 1.25f, 1.6f, STORAGE),
+        box(3.9f, 0.52f, 1.55f, 3.8f, 0.30f, 0.58f, PIPE),
+        box(-3.4f, 0.42f, -3.7f, 4.8f, 0.22f, 0.72f, ROAD_LIGHT),
+        box(3.3f, 0.42f, -3.7f, 4.8f, 0.22f, 0.72f, ROAD_LIGHT),
+    )
+
+    private fun buildNetworkedStage(): List<ModelInstance> = listOf(
+        box(-8.2f, 0.25f, 3.7f, 2.4f, 0.18f, 1.5f, SOLAR),
+        box(-5.3f, 0.25f, 4.7f, 2.4f, 0.18f, 1.5f, SOLAR),
+        box(-2.4f, 0.25f, 5.5f, 2.4f, 0.18f, 1.5f, SOLAR),
+        cylinder(-8.5f, 2.1f, 0.8f, 0.28f, 4.2f, RELAY),
+        cylinder(8.5f, 2.1f, 1.2f, 0.28f, 4.2f, RELAY),
+        cylinder(0f, 2.7f, -6.3f, 0.34f, 5.4f, RELAY),
+        sphere(-8.5f, 4.25f, 0.8f, 0.82f, 0.82f, 0.82f, WINDOW),
+        sphere(8.5f, 4.25f, 1.2f, 0.82f, 0.82f, 0.82f, WINDOW),
+        sphere(0f, 5.45f, -6.3f, 0.92f, 0.92f, 0.92f, WINDOW),
+    )
+
+    private fun buildOrbitalStage(): List<ModelInstance> = listOf(
+        box(-1.65f, 2.6f, 5.7f, 0.55f, 5.2f, 0.55f, GANTRY),
+        box(1.65f, 2.6f, 5.7f, 0.55f, 5.2f, 0.55f, GANTRY),
+        box(0f, 4.9f, 5.7f, 3.85f, 0.45f, 0.72f, GANTRY),
+        box(0f, 0.28f, 5.7f, 5.1f, 0.42f, 4.2f, LAUNCH_PAD),
+        cylinder(0f, 2.2f, 5.7f, 1.25f, 3.9f, ROCKET),
+        cylinder(0f, 4.45f, 5.7f, 0.78f, 1.25f, ROCKET_LIGHT),
+    )
 
     private fun routePosition(phase: Float): Vector3 {
         val route = ROBOT_ROUTE
@@ -272,6 +319,7 @@ class FerrumPrimitiveScene {
         )
         val GROUND = Color(0.075f, 0.095f, 0.13f, 1f)
         val ROAD = Color(0.11f, 0.15f, 0.19f, 1f)
+        val ROAD_LIGHT = Color(0.18f, 0.34f, 0.42f, 1f)
         val BASE = Color(0.19f, 0.27f, 0.37f, 1f)
         val BASE_DARK = Color(0.10f, 0.15f, 0.22f, 1f)
         val REFINER = Color(0.25f, 0.26f, 0.34f, 1f)
@@ -286,5 +334,13 @@ class FerrumPrimitiveScene {
         val ROBOT = Color(0.70f, 0.76f, 0.80f, 1f)
         val CRATE = Color(0.82f, 0.62f, 0.26f, 1f)
         val SELECTION = Color(0.96f, 0.78f, 0.24f, 1f)
+        val STORAGE = Color(0.29f, 0.38f, 0.46f, 1f)
+        val SOLAR = Color(0.15f, 0.32f, 0.58f, 1f)
+        val RELAY = Color(0.32f, 0.62f, 0.72f, 1f)
+        val GANTRY = Color(0.56f, 0.38f, 0.25f, 1f)
+        val LAUNCH_PAD = Color(0.20f, 0.23f, 0.29f, 1f)
+        val ROCKET = Color(0.72f, 0.76f, 0.82f, 1f)
+        val ROCKET_LIGHT = Color(0.92f, 0.48f, 0.18f, 1f)
+        val BEACON = Color(0.36f, 0.94f, 0.92f, 1f)
     }
 }
