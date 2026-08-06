@@ -25,6 +25,7 @@ import fr.solremi.minerspace.game.performance.RuntimePerformanceBudgets
 import fr.solremi.minerspace.game.presentation.FerrumProductionAdvice
 import fr.solremi.minerspace.game.presentation.FerrumProductionAssistant
 import fr.solremi.minerspace.game.presentation.PresentationController
+import fr.solremi.minerspace.game.scene.FerrumColonyVisualState
 import fr.solremi.minerspace.game.scene.FerrumNodeId
 import fr.solremi.minerspace.game.scene.FerrumPrimitiveScene
 import fr.solremi.minerspace.game.text.GameplayText
@@ -81,6 +82,7 @@ class FerrumCommandScreen(
     private var previousZoomDistance = 0f
     private var layout: FerrumPlayerHudLayout? = null
     private var advice = initialAdvice()
+    private var lastAnnouncedDevelopmentStage = FerrumColonyVisualState.stage
 
     private val lifecycle = LifecycleObserver { state ->
         if (state == LifecycleState.BACKGROUND && !controller.save()) {
@@ -116,6 +118,7 @@ class FerrumCommandScreen(
         val tick = controller.tick()
         if (tick.autosaveFailed) message = FrenchGameText.text(GameTextKey.AUTOSAVE_DEFERRED)
         advice = FerrumProductionAssistant.evaluate(gameState, refiningDefinitions, assemblyDefinitions)
+        announceDevelopmentStageIfNeeded()
 
         val budget = RuntimePerformanceBudgets.forQuality(PresentationController.current.quality)
         Gdx.gl.glClearColor(0.006f, 0.010f, 0.025f, 1f)
@@ -132,6 +135,15 @@ class FerrumCommandScreen(
         )
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST)
         drawHud()
+    }
+
+    private fun announceDevelopmentStageIfNeeded() {
+        val current = FerrumColonyVisualState.stage
+        if (current.rank > lastAnnouncedDevelopmentStage.rank) {
+            message = "NOVA · La colonie atteint le stade ${current.label}."
+            services.haptic.success()
+        }
+        lastAnnouncedDevelopmentStage = current
     }
 
     private fun drawHud() {
@@ -195,7 +207,10 @@ class FerrumCommandScreen(
         smallFont.color = MUTED
         smallFont.draw(
             batch,
-            UiText.ellipsis(message, 82),
+            UiText.ellipsis(
+                "${FerrumColonyVisualState.stage.label} · ${saveStatusLine()} · $message",
+                100,
+            ),
             current.safeArea.left,
             current.status.y + current.status.height + 13f,
         )
@@ -217,6 +232,15 @@ class FerrumCommandScreen(
     private fun economyLine(): String =
         "${gameState.economy.spaceDollars} SD · fer ${controller.stock(RAW_IRON)} · " +
             "cuivre ${controller.stock(RAW_COPPER)} · cristal ${controller.stock(RAW_CRYSTAL)}"
+
+    private fun saveStatusLine(): String {
+        val seconds = controller.secondsSinceLastSave() ?: return "NON SAUVEGARDÉ"
+        return when {
+            seconds < 5L -> "SAUVEGARDÉ"
+            seconds < 60L -> "SAUV. ${seconds}s"
+            else -> "SAUV. ${seconds / 60L}min"
+        }
+    }
 
     private fun selectionTitle(): String = when (selected) {
         FerrumNodeId.BASE -> "Base Delta"
