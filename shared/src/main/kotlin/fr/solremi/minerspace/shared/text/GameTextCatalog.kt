@@ -36,55 +36,25 @@ enum class GameTextKey {
     REWARDED_OPTIONAL,
     REWARDED_UNAVAILABLE,
     REWARDED_ALREADY_GRANTED,
-    FERRUM_TITLE,
-    FERRUM_INITIAL_MESSAGE,
-    FERRUM_BASE,
-    FERRUM_REFINER,
-    FERRUM_ASSEMBLER,
-    FERRUM_IRON_DEPOSIT,
-    FERRUM_COPPER_DEPOSIT,
-    FERRUM_CRYSTAL_DEPOSIT,
-    FERRUM_NO_SELECTION,
-    FERRUM_BASE_HELP,
-    FERRUM_SELECTION_HINT,
-    FERRUM_NO_REFINING_RECIPE,
-    FERRUM_NO_ASSEMBLY_RECIPE,
-    NAV_METEORS,
-    NAV_ROBOTS,
-    NAV_STRATEGY,
-    NAV_MISSIONS,
-    NAV_ARCHIVES,
-    NAV_SETTINGS,
-    NAV_DEPARTURE,
-    NAV_ADS,
-    BUTTON_RECIPE,
-    BUTTON_ACTION,
-    BUTTON_TASK,
-    BUTTON_CENTER,
-    BUTTON_SELL,
-    BUTTON_LAUNCH,
-    BUTTON_COLLECT,
-    BUTTON_CANCEL,
-    BUTTON_INSTALL,
-    BUTTON_REFUNDS,
-    ASSET_LOADING,
 }
 
 interface GameTextCatalog {
     fun text(key: GameTextKey, arguments: Map<String, Any?> = emptyMap()): String
 }
 
-class TemplateGameTextCatalog(
-    private val templates: Map<GameTextKey, String>,
-) : GameTextCatalog {
+class TemplateTextCatalog<K : Any>(
+    requiredKeys: Set<K>,
+    private val templates: Map<K, String>,
+) {
     init {
-        require(templates.keys == GameTextKey.entries.toSet()) {
-            val missing = GameTextKey.entries.filterNot(templates::containsKey)
-            "Missing game text keys: $missing"
+        require(templates.keys == requiredKeys) {
+            val missing = requiredKeys - templates.keys
+            val unexpected = templates.keys - requiredKeys
+            "Invalid text catalog. Missing=$missing, unexpected=$unexpected"
         }
     }
 
-    override fun text(key: GameTextKey, arguments: Map<String, Any?>): String {
+    fun text(key: K, arguments: Map<String, Any?> = emptyMap()): String {
         val template = templates.getValue(key)
         val expected = PLACEHOLDER.findAll(template).map { it.groupValues[1] }.toSet()
         require(arguments.keys == expected) {
@@ -98,6 +68,15 @@ class TemplateGameTextCatalog(
     private companion object {
         val PLACEHOLDER = Regex("\\{([a-z][a-zA-Z0-9]*)}")
     }
+}
+
+class TemplateGameTextCatalog(
+    templates: Map<GameTextKey, String>,
+) : GameTextCatalog {
+    private val delegate = TemplateTextCatalog(GameTextKey.entries.toSet(), templates)
+
+    override fun text(key: GameTextKey, arguments: Map<String, Any?>): String =
+        delegate.text(key, arguments)
 }
 
 object FrenchGameText : GameTextCatalog by TemplateGameTextCatalog(
@@ -137,37 +116,5 @@ object FrenchGameText : GameTextCatalog by TemplateGameTextCatalog(
         GameTextKey.REWARDED_OPTIONAL to "La publicité récompensée reste facultative",
         GameTextKey.REWARDED_UNAVAILABLE to "Aucune publicité disponible · le jeu normal reste accessible",
         GameTextKey.REWARDED_ALREADY_GRANTED to "Récompense déjà attribuée",
-        GameTextKey.FERRUM_TITLE to "FERRUM DELTA · VERTICAL SLICE 2.5D",
-        GameTextKey.FERRUM_INITIAL_MESSAGE to "Chaîne de production Ferrum prête",
-        GameTextKey.FERRUM_BASE to "Base Delta",
-        GameTextKey.FERRUM_REFINER to "Raffineur RF-01",
-        GameTextKey.FERRUM_ASSEMBLER to "Assembleur AS-01",
-        GameTextKey.FERRUM_IRON_DEPOSIT to "Gisement de fer",
-        GameTextKey.FERRUM_COPPER_DEPOSIT to "Gisement de cuivre",
-        GameTextKey.FERRUM_CRYSTAL_DEPOSIT to "Gisement de cristal",
-        GameTextKey.FERRUM_NO_SELECTION to "Aucune sélection",
-        GameTextKey.FERRUM_BASE_HELP to "Vendez le stock ou récupérez les remboursements de raffinage.",
-        GameTextKey.FERRUM_SELECTION_HINT to "Touchez une installation ou un gisement.",
-        GameTextKey.FERRUM_NO_REFINING_RECIPE to "Aucune recette de raffinage disponible",
-        GameTextKey.FERRUM_NO_ASSEMBLY_RECIPE to "Aucune recette d’assemblage disponible",
-        GameTextKey.NAV_METEORS to "MÉT.",
-        GameTextKey.NAV_ROBOTS to "ROBOTS",
-        GameTextKey.NAV_STRATEGY to "STRAT.",
-        GameTextKey.NAV_MISSIONS to "MISS.",
-        GameTextKey.NAV_ARCHIVES to "ARCH.",
-        GameTextKey.NAV_SETTINGS to "FX",
-        GameTextKey.NAV_DEPARTURE to "DÉPART",
-        GameTextKey.NAV_ADS to "PUB",
-        GameTextKey.BUTTON_RECIPE to "RECETTE",
-        GameTextKey.BUTTON_ACTION to "ACTION",
-        GameTextKey.BUTTON_TASK to "TÂCHE",
-        GameTextKey.BUTTON_CENTER to "CENTRER",
-        GameTextKey.BUTTON_SELL to "VENDRE",
-        GameTextKey.BUTTON_LAUNCH to "LANCER",
-        GameTextKey.BUTTON_COLLECT to "COLLECTER",
-        GameTextKey.BUTTON_CANCEL to "ANNULER",
-        GameTextKey.BUTTON_INSTALL to "INSTALLER",
-        GameTextKey.BUTTON_REFUNDS to "REMBOURS.",
-        GameTextKey.ASSET_LOADING to "CHARGEMENT",
     ),
 )
