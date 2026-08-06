@@ -72,6 +72,9 @@ class ManufacturingCoordinator(
     private var remainderMillis = 0L
     private var lastAutosaveMillis = 0L
 
+    var lastSuccessfulSaveAtEpochMillis: Long? = null
+        private set
+
     var state: ManufacturingGameState = loadState()
         private set
 
@@ -116,6 +119,10 @@ class ManufacturingCoordinator(
     }
 
     fun save(): Boolean = saveState(state)
+
+    fun secondsSinceLastSave(): Long? = lastSuccessfulSaveAtEpochMillis?.let { savedAt ->
+        ((now() - savedAt) / 1_000L).coerceAtLeast(0L)
+    }
 
     fun sellAll(): ManufacturingActionResult = applyEconomy(
         economy.sellAllSellable(state.economy),
@@ -227,6 +234,7 @@ class ManufacturingCoordinator(
             require(assemblyDefinitions.contentVersion == payload.contentVersion)
             val restored = codec.decode(payload)
             economy.requireValid(restored.economy)
+            lastSuccessfulSaveAtEpochMillis = payload.savedAtEpochMillis.takeIf { it > 0L }
             reconcile(restored)
         }.onFailure {
             logger.warning(TAG, "Manufacturing save is invalid; the initial state is used.", it)
@@ -240,18 +248,23 @@ class ManufacturingCoordinator(
     }
 
     private fun saveState(candidate: ManufacturingGameState): Boolean {
+        val savedAt = now()
         val status = runCatching {
             save.save(
                 codec.encode(
                     state = candidate,
                     contentVersion = economyDefinitions.contentVersion,
-                    savedAtEpochMillis = now(),
+                    savedAtEpochMillis = savedAt,
                 ),
             )
         }.onFailure {
             logger.error(TAG, "Unable to persist manufacturing state.", it)
         }.getOrElse { SaveWriteStatus.FAILED }
-        return status == SaveWriteStatus.WRITTEN
+        if (status == SaveWriteStatus.WRITTEN) {
+            lastSuccessfulSaveAtEpochMillis = savedAt
+            return true
+        }
+        return false
     }
 
     private fun now(): Long = clock.nowEpochMillis().coerceAtLeast(0L)
