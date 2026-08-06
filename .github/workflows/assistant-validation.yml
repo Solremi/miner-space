@@ -19,6 +19,6 @@ jobs:
         run: |
           rm -rf .github/workflows
           python3 scripts/source-safety-check.py
-          printf '\nandroid.sourceset.disallowProvider=false\n' >> gradle.properties
+          printf '\nandroid.sourceset.disallowProvider=false\nandroid.defaults.buildfeatures.resvalues=true\n' >> gradle.properties
           chmod +x gradlew scripts/*.sh
           ./gradlew :shared:check :domain:check :data:check :game:check
