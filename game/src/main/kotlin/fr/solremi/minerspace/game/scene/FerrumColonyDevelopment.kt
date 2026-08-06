@@ -44,3 +44,13 @@ data class FerrumColonyDevelopment(
         private val SENSOR_ARRAY = GameId.of("component_sensor_array")
     }
 }
+
+object FerrumColonyVisualState {
+    @Volatile
+    var stage: FerrumColonyStage = FerrumColonyStage.OUTPOST
+        private set
+
+    fun update(development: FerrumColonyDevelopment) {
+        stage = development.stage
+    }
+}
