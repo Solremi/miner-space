@@ -116,6 +116,22 @@ required_features = {
         "RuntimePerformanceBudgets.forQuality",
         "scene.render(",
     ),
+    "game/src/main/kotlin/fr/solremi/minerspace/game/screen/FerrumCommandScreen.kt": (
+        "class FerrumCommandScreen",
+        "FerrumProductionAssistant.evaluate",
+        "BatchMode",
+        "collectAllAvailable",
+    ),
+    "game/src/main/kotlin/fr/solremi/minerspace/game/presentation/FerrumProductionAssistant.kt": (
+        "object FerrumProductionAssistant",
+        "DÉMARRAGE",
+        "missingOrReady",
+    ),
+    "game/src/main/kotlin/fr/solremi/minerspace/game/ui/FerrumPlayerHud.kt": (
+        "FerrumPrimaryDestination",
+        "FerrumSecondaryDestination",
+        "MIN_TOUCH_SIZE = 48f",
+    ),
     "game/src/main/kotlin/fr/solremi/minerspace/game/assets/LibGdxAssetBackend.kt": (
         "class LibGdxAssetBackend",
         "GlbLoaderRegistrar",
@@ -143,8 +159,12 @@ for relative, tokens in required_features.items():
             errors.append(f"required feature missing in {relative}: {token}")
 
 routing = read("game/src/main/kotlin/fr/solremi/minerspace/game/MinerSpaceGame.kt")
-if "InitialRoute.FERRUM -> setScreen<FerrumVerticalSliceScreen>()" not in routing:
-    errors.append("Ferrum route does not open the 2.5D vertical slice")
+if "InitialRoute.FERRUM -> setScreen<FerrumCommandScreen>()" not in routing:
+    errors.append("Ferrum route does not open the streamlined command screen")
+if "FerrumVerticalSliceScreen" not in read(
+    "game/src/main/kotlin/fr/solremi/minerspace/game/screen/FerrumVerticalSliceScreen.kt"
+):
+    errors.append("legacy Ferrum vertical slice fallback is missing")
 
 for relative in (
     "data/src/main/kotlin/fr/solremi/minerspace/data/economy/CoreEconomyContentLoader.kt",
