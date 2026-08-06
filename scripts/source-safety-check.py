@@ -77,6 +77,17 @@ for token in (
     if token not in coalescing:
         errors.append(f"coalescing save guard missing: {token}")
 
+manufacturing = read(
+    "data/src/main/kotlin/fr/solremi/minerspace/data/manufacturing/ManufacturingCoordinator.kt"
+)
+for token in (
+    "lastSuccessfulSaveAtEpochMillis",
+    "secondsSinceLastSave",
+    "payload.savedAtEpochMillis",
+):
+    if token not in manufacturing:
+        errors.append(f"manufacturing save freshness missing: {token}")
+
 services = read("domain/src/main/kotlin/fr/solremi/minerspace/domain/services/GameServices.kt")
 if "val deferredSave: DeferredSaveService? = null" not in services:
     errors.append("GameServices does not expose optional deferred saves")
@@ -101,6 +112,14 @@ for token in (
     if token not in android_services:
         errors.append(f"Android save or diagnostics integration missing: {token}")
 
+android_build = read("androidApp/build.gradle.kts")
+for token in (
+    "jniLibs.srcDir(generatedNatives.get().asFile)",
+    "resValues = true",
+):
+    if token not in android_build:
+        errors.append(f"Android Gradle compatibility guard missing: {token}")
+
 main_activity = read("androidApp/src/main/kotlin/fr/solremi/minerspace/android/MainActivity.kt")
 if "logger = AndroidDiagnosticLogger" not in main_activity:
     errors.append("MinerSpaceGame is not using the structured Android diagnostic logger")
@@ -110,6 +129,15 @@ required_features = {
         "class FerrumPrimitiveScene",
         "ModelBatch",
         "FerrumSceneSpec",
+        "FerrumColonyVisualState.stage",
+        "buildIndustrialStage",
+        "buildNetworkedStage",
+        "buildOrbitalStage",
+    ),
+    "game/src/main/kotlin/fr/solremi/minerspace/game/scene/FerrumColonyDevelopment.kt": (
+        "enum class FerrumColonyStage",
+        "object FerrumColonyVisualState",
+        "fun from(state: ManufacturingGameState)",
     ),
     "game/src/main/kotlin/fr/solremi/minerspace/game/screen/FerrumVerticalSliceScreen.kt": (
         "class FerrumVerticalSliceScreen",
@@ -124,6 +152,7 @@ required_features = {
     ),
     "game/src/main/kotlin/fr/solremi/minerspace/game/presentation/FerrumProductionAssistant.kt": (
         "object FerrumProductionAssistant",
+        "FerrumColonyVisualState.update",
         "DÉMARRAGE",
         "missingOrReady",
     ),
@@ -157,6 +186,13 @@ for relative, tokens in required_features.items():
     for token in tokens:
         if token not in content:
             errors.append(f"required feature missing in {relative}: {token}")
+
+for test_path in (
+    "game/src/test/kotlin/fr/solremi/minerspace/game/ui/FerrumPlayerHudTest.kt",
+    "game/src/test/kotlin/fr/solremi/minerspace/game/presentation/FerrumProductionAssistantTest.kt",
+    "game/src/test/kotlin/fr/solremi/minerspace/game/scene/FerrumColonyDevelopmentTest.kt",
+):
+    read(test_path)
 
 routing = read("game/src/main/kotlin/fr/solremi/minerspace/game/MinerSpaceGame.kt")
 if "InitialRoute.FERRUM -> setScreen<FerrumCommandScreen>()" not in routing:
