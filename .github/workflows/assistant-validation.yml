@@ -11,11 +11,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - name: Run Gradle checks
+      - name: Run JVM module checks
         run: |
           chmod +x gradlew scripts/*.sh
-          ./gradlew qualityCheck
+          ./gradlew :shared:check :domain:check :data:check :game:check
