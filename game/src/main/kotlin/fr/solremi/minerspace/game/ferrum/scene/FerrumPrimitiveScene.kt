@@ -1,4 +1,4 @@
-package fr.solremi.minerspace.game.scene
+package fr.solremi.minerspace.game.ferrum.scene
 
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
@@ -15,6 +15,7 @@ import com.badlogic.gdx.math.Intersector
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.math.collision.BoundingBox
 import com.badlogic.gdx.math.collision.Ray
+import fr.solremi.minerspace.game.ferrum.model.FerrumColonyStage
 import fr.solremi.minerspace.game.performance.RuntimePerformanceBudget
 import kotlin.math.floor
 import kotlin.math.sin
@@ -67,10 +68,6 @@ object FerrumSceneSpec {
     }
 }
 
-/**
- * Procedural 2.5D colony scene. The primitive geometry is intentionally kept
- * lightweight, while the visible infrastructure evolves with player progress.
- */
 class FerrumPrimitiveScene {
     private val modelBatch = ModelBatch()
     private val environment = Environment().apply {
@@ -148,7 +145,7 @@ class FerrumPrimitiveScene {
         nowMillis: Long,
         budget: RuntimePerformanceBudget,
         productionActive: Boolean,
-        developmentStage: FerrumColonyStage = FerrumColonyVisualState.stage,
+        developmentStage: FerrumColonyStage,
     ) {
         val seconds = nowMillis.coerceAtLeast(0L) / 1_000f
         val visibleRobots = minOf(robots.size, budget.maxVisibleRobots)
@@ -300,8 +297,7 @@ class FerrumPrimitiveScene {
         return ModelInstance(model).apply { transform.setToTranslation(x, y, z) }
     }
 
-    private fun material(color: Color): Material =
-        Material(ColorAttribute.createDiffuse(color))
+    private fun material(color: Color): Material = Material(ColorAttribute.createDiffuse(color))
 
     private data class RobotPrimitive(
         val body: ModelInstance,
