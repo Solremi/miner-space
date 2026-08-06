@@ -1,124 +1,6 @@
 package fr.solremi.minerspace.domain.economy
 
 import fr.solremi.minerspace.shared.GameId
-import java.math.BigInteger
-
-const val MULTIPLIER_SCALE: Long = 1_000_000L
-
-data class ResourceDefinition(
-    val id: GameId,
-    val nameKey: String,
-    val unitSalePrice: Long,
-    val storageCapacity: Long,
-    val sellable: Boolean,
-) {
-    init {
-        require(nameKey.isNotBlank())
-        require(unitSalePrice >= 0L)
-        require(storageCapacity > 0L)
-    }
-}
-
-data class DepositDefinition(
-    val id: GameId,
-    val resourceId: GameId,
-    val initialReserve: Long,
-    val extractionPerSecond: Long,
-    val transportCapacity: Long,
-    val productionMultiplier: Long = MULTIPLIER_SCALE,
-) {
-    init {
-        require(initialReserve >= 0L)
-        require(extractionPerSecond > 0L)
-        require(transportCapacity > 0L)
-        require(productionMultiplier > 0L)
-    }
-}
-
-data class EconomyDefinitions(
-    val schemaVersion: Int,
-    val contentVersion: String,
-    val resources: Map<GameId, ResourceDefinition>,
-    val deposits: Map<GameId, DepositDefinition>,
-) {
-    init {
-        require(schemaVersion > 0)
-        require(contentVersion.isNotBlank())
-        require(resources.isNotEmpty())
-        require(deposits.isNotEmpty())
-        deposits.values.forEach { deposit ->
-            require(resources.containsKey(deposit.resourceId)) {
-                "Deposit ${deposit.id} references unknown resource ${deposit.resourceId}."
-            }
-        }
-    }
-}
-
-data class DepositState(
-    val remainingReserve: Long,
-    val pendingCollection: Long,
-) {
-    init {
-        require(remainingReserve >= 0L)
-        require(pendingCollection >= 0L)
-    }
-}
-
-data class EconomyState(
-    val inventory: Map<GameId, Long>,
-    val deposits: Map<GameId, DepositState>,
-    val spaceDollars: Long,
-    val transactionSequence: Long,
-) {
-    init {
-        require(inventory.values.none { it < 0L })
-        require(spaceDollars >= 0L)
-        require(transactionSequence >= 0L)
-    }
-}
-
-data class EconomyTransaction(
-    val sequence: Long,
-    val reason: String,
-    val resourceDeltas: Map<GameId, Long> = emptyMap(),
-    val spaceDollarDelta: Long = 0L,
-)
-
-sealed interface EconomyCommandResult {
-    val state: EconomyState
-
-    data class Applied(
-        override val state: EconomyState,
-        val transaction: EconomyTransaction,
-    ) : EconomyCommandResult
-
-    data class Rejected(
-        override val state: EconomyState,
-        val code: String,
-    ) : EconomyCommandResult
-}
-
-data class ExtractionTickResult(
-    val state: EconomyState,
-    val extractedByDeposit: Map<GameId, Long>,
-)
-
-object FixedPointMath {
-    private val scale = BigInteger.valueOf(MULTIPLIER_SCALE)
-
-    fun floorMultiply(value: Long, multiplierMillionths: Long): Long {
-        require(value >= 0L)
-        require(multiplierMillionths >= 0L)
-        return BigInteger.valueOf(value)
-            .multiply(BigInteger.valueOf(multiplierMillionths))
-            .divide(scale)
-            .longValueExact()
-    }
-
-    fun addExact(left: Long, right: Long): Long = Math.addExact(left, right)
-
-    fun multiplyExact(left: Long, right: Long): Long = Math.multiplyExact(left, right)
-}
 
 class CoreEconomyEngine(
     val definitions: EconomyDefinitions,
@@ -298,8 +180,8 @@ class CoreEconomyEngine(
         )
         requireValid(next)
         return EconomyCommandResult.Applied(
-            state = next,
-            transaction = EconomyTransaction(
+            next,
+            EconomyTransaction(
                 sequence = sequence,
                 reason = "sell_all",
                 resourceDeltas = deltas,
