@@ -75,10 +75,15 @@ object FerrumPlayerHudLayoutCalculator {
         val secondary = if (menuOpen) {
             val widthMenu = 132f
             val gap = 4f
+            val columns = 2
+            val totalWidth = widthMenu * columns + gap
+            val startX = safe.right - totalWidth
             FerrumSecondaryDestination.entries.mapIndexed { index, _ ->
+                val column = index % columns
+                val row = index / columns
                 Rectangle(
-                    safe.right - widthMenu,
-                    topBar.y - (index + 1) * (MIN_TOUCH_SIZE + gap),
+                    startX + column * (widthMenu + gap),
+                    topBar.y - (row + 1) * (MIN_TOUCH_SIZE + gap),
                     widthMenu,
                     MIN_TOUCH_SIZE,
                 )
