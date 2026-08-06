@@ -5,6 +5,8 @@ import fr.solremi.minerspace.domain.assembly.AssemblyJobStatus
 import fr.solremi.minerspace.domain.assembly.ManufacturingGameState
 import fr.solremi.minerspace.domain.refining.RefiningDefinitions
 import fr.solremi.minerspace.domain.refining.RefiningJobStatus
+import fr.solremi.minerspace.game.scene.FerrumColonyDevelopment
+import fr.solremi.minerspace.game.scene.FerrumColonyVisualState
 import fr.solremi.minerspace.game.scene.FerrumNodeId
 import fr.solremi.minerspace.shared.GameId
 
@@ -26,6 +28,8 @@ object FerrumProductionAssistant {
         refining: RefiningDefinitions,
         assembly: AssemblyDefinitions,
     ): FerrumProductionAdvice {
+        FerrumColonyVisualState.update(FerrumColonyDevelopment.from(state))
+
         state.refining.jobs.firstOrNull { it.status == RefiningJobStatus.READY_TO_COLLECT }?.let { job ->
             return advice(
                 phase = phase(state),
