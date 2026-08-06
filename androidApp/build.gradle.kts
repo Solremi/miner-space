@@ -79,7 +79,7 @@ android {
     sourceSets {
         getByName("main") {
             assets.srcDir(rootProject.file("assets"))
-            jniLibs.srcDir(generatedNatives)
+            jniLibs.srcDir(generatedNatives.get().asFile)
         }
     }
 
@@ -90,6 +90,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        resValues = true
     }
 
     lint {
