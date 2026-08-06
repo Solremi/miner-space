@@ -2,147 +2,6 @@ package fr.solremi.minerspace.domain.ads
 
 import fr.solremi.minerspace.shared.GameId
 
-enum class RewardType {
-    TIME_RELAY,
-    OFFLINE_DOUBLE,
-    STANDARD_MATERIALS,
-    PREMIUM_CONTRACT,
-    ANALYSIS,
-    METEOR_RECOVERY,
-    METEOR_EXTENSION,
-    ORBITAL_BOOST,
-}
-
-enum class RewardScope { DAILY, RETURN, EVENT }
-enum class PendingRewardStatus { PREPARED, SDK_REWARDED }
-
-data class RewardedOfferDefinition(
-    val id: GameId,
-    val title: String,
-    val rewardDescription: String,
-    val rewardType: RewardType,
-    val rewardValue: Long,
-    val rewardDurationMillis: Long,
-    val dailyLimit: Int,
-    val cooldownMillis: Long,
-    val scope: RewardScope,
-) {
-    init {
-        require(title.isNotBlank() && rewardDescription.isNotBlank())
-        require(rewardValue > 0L && rewardDurationMillis >= 0L)
-        require(dailyLimit > 0 && cooldownMillis >= 0L)
-    }
-}
-
-data class RewardedAdvertisingDefinitions(
-    val schemaVersion: Int,
-    val contentVersion: String,
-    val globalDailyLimit: Int,
-    val offers: Map<GameId, RewardedOfferDefinition>,
-) {
-    init {
-        require(schemaVersion > 0 && contentVersion.isNotBlank())
-        require(globalDailyLimit > 0 && offers.isNotEmpty())
-        require(offers.values.map { it.rewardType }.distinct().size == offers.size)
-        require(offers.values.none { it.dailyLimit > globalDailyLimit })
-    }
-}
-
-data class PendingAdReward(
-    val requestId: String,
-    val offerId: GameId,
-    val scopeId: String?,
-    val status: PendingRewardStatus,
-    val preparedAtEpochMillis: Long,
-    val sdkRewardedAtEpochMillis: Long = 0L,
-) {
-    init {
-        require(requestId.isNotBlank())
-        require(preparedAtEpochMillis >= 0L && sdkRewardedAtEpochMillis >= 0L)
-        if (status == PendingRewardStatus.SDK_REWARDED) require(sdkRewardedAtEpochMillis >= preparedAtEpochMillis)
-    }
-}
-
-data class RewardEntitlements(
-    val timeRelayTokens: Int = 0,
-    val offlineDoubleTokens: Int = 0,
-    val standardMaterialMinutes: Long = 0L,
-    val premiumContractTokens: Int = 0,
-    val analysisTokens: Int = 0,
-    val meteorRecoveryTokens: Int = 0,
-    val meteorExtensionSeconds: Long = 0L,
-    val orbitalBoostPercent: Int = 0,
-    val orbitalBoostUntilEpochMillis: Long = 0L,
-) {
-    init {
-        require(timeRelayTokens >= 0 && offlineDoubleTokens >= 0 && standardMaterialMinutes >= 0L)
-        require(premiumContractTokens >= 0 && analysisTokens >= 0 && meteorRecoveryTokens >= 0)
-        require(meteorExtensionSeconds >= 0L && orbitalBoostPercent in 0..25 && orbitalBoostUntilEpochMillis >= 0L)
-    }
-}
-
-data class RewardedAdvertisingState(
-    val dayIndex: Long,
-    val committedToday: Int,
-    val committedByOffer: Map<GameId, Int>,
-    val lastCommittedAtByOffer: Map<GameId, Long>,
-    val committedRequestIds: Set<String>,
-    val scopeCommittedByOffer: Map<String, Set<GameId>>,
-    val pendingRewards: Map<String, PendingAdReward>,
-    val entitlements: RewardEntitlements,
-    val transactionSequence: Long,
-) {
-    init {
-        require(dayIndex >= 0L && committedToday >= 0 && transactionSequence >= 0L)
-        require(committedByOffer.values.none { it < 0 })
-        require(lastCommittedAtByOffer.values.none { it < 0L })
-        require(pendingRewards.keys.all { it.isNotBlank() })
-    }
-}
-
-data class AdPlacementContext(
-    val adsAllowed: Boolean,
-    val sdkAvailable: Boolean,
-    val tutorialActive: Boolean = false,
-    val narrativeActive: Boolean = false,
-    val majorAnimationActive: Boolean = false,
-    val scopeId: String? = null,
-)
-
-data class RewardedAdTransaction(
-    val sequence: Long,
-    val reason: String,
-    val requestId: String,
-    val offerId: GameId,
-)
-
-sealed interface RewardedAdCommandResult {
-    val state: RewardedAdvertisingState
-
-    data class Applied(
-        override val state: RewardedAdvertisingState,
-        val transaction: RewardedAdTransaction,
-    ) : RewardedAdCommandResult
-
-    data class Rejected(
-        override val state: RewardedAdvertisingState,
-        val code: String,
-    ) : RewardedAdCommandResult
-}
-
-data class RewardRecoveryResult(
-    val state: RewardedAdvertisingState,
-    val committedRequestIds: List<String>,
-)
-
-data class OfferAvailability(
-    val available: Boolean,
-    val reason: String?,
-    val committedToday: Int,
-    val offerCommittedToday: Int,
-    val remainingCooldownMillis: Long,
-)
-
 class RewardedAdvertisingEngine(val definitions: RewardedAdvertisingDefinitions) {
     fun initialState(dayIndex: Long): RewardedAdvertisingState {
         require(dayIndex >= 0L)
@@ -378,29 +237,51 @@ class RewardedAdvertisingEngine(val definitions: RewardedAdvertisingDefinitions)
             val committed = state.scopeCommittedByOffer[scopeKey(offer.scope, scopeId)].orEmpty()
             if (offer.id in committed) return "scope_already_used"
         }
-        if (offer.rewardType == RewardType.ORBITAL_BOOST &&
+        if (
+            offer.rewardType == RewardType.ORBITAL_BOOST &&
             state.entitlements.orbitalBoostPercent > 0 &&
             state.entitlements.orbitalBoostUntilEpochMillis > nowEpochMillis
-        ) return "boost_already_active"
+        ) {
+            return "boost_already_active"
+        }
         val last = state.lastCommittedAtByOffer[offer.id]
-        if (last != null && offer.cooldownMillis > 0L && nowEpochMillis - last < offer.cooldownMillis) return "cooldown_active"
+        if (last != null && offer.cooldownMillis > 0L && nowEpochMillis - last < offer.cooldownMillis) {
+            return "cooldown_active"
+        }
         return null
     }
 
-    private fun grant(entitlements: RewardEntitlements, offer: RewardedOfferDefinition, nowEpochMillis: Long): RewardEntitlements =
-        when (offer.rewardType) {
-            RewardType.TIME_RELAY -> entitlements.copy(timeRelayTokens = Math.addExact(entitlements.timeRelayTokens, offer.rewardValue.toInt()))
-            RewardType.OFFLINE_DOUBLE -> entitlements.copy(offlineDoubleTokens = Math.addExact(entitlements.offlineDoubleTokens, offer.rewardValue.toInt()))
-            RewardType.STANDARD_MATERIALS -> entitlements.copy(standardMaterialMinutes = Math.addExact(entitlements.standardMaterialMinutes, offer.rewardValue))
-            RewardType.PREMIUM_CONTRACT -> entitlements.copy(premiumContractTokens = Math.addExact(entitlements.premiumContractTokens, offer.rewardValue.toInt()))
-            RewardType.ANALYSIS -> entitlements.copy(analysisTokens = Math.addExact(entitlements.analysisTokens, offer.rewardValue.toInt()))
-            RewardType.METEOR_RECOVERY -> entitlements.copy(meteorRecoveryTokens = Math.addExact(entitlements.meteorRecoveryTokens, 1))
-            RewardType.METEOR_EXTENSION -> entitlements.copy(meteorExtensionSeconds = Math.addExact(entitlements.meteorExtensionSeconds, offer.rewardValue))
-            RewardType.ORBITAL_BOOST -> entitlements.copy(
-                orbitalBoostPercent = offer.rewardValue.toInt().coerceAtMost(25),
-                orbitalBoostUntilEpochMillis = Math.addExact(nowEpochMillis, offer.rewardDurationMillis),
-            )
-        }
+    private fun grant(
+        entitlements: RewardEntitlements,
+        offer: RewardedOfferDefinition,
+        nowEpochMillis: Long,
+    ): RewardEntitlements = when (offer.rewardType) {
+        RewardType.TIME_RELAY -> entitlements.copy(
+            timeRelayTokens = Math.addExact(entitlements.timeRelayTokens, offer.rewardValue.toInt()),
+        )
+        RewardType.OFFLINE_DOUBLE -> entitlements.copy(
+            offlineDoubleTokens = Math.addExact(entitlements.offlineDoubleTokens, offer.rewardValue.toInt()),
+        )
+        RewardType.STANDARD_MATERIALS -> entitlements.copy(
+            standardMaterialMinutes = Math.addExact(entitlements.standardMaterialMinutes, offer.rewardValue),
+        )
+        RewardType.PREMIUM_CONTRACT -> entitlements.copy(
+            premiumContractTokens = Math.addExact(entitlements.premiumContractTokens, offer.rewardValue.toInt()),
+        )
+        RewardType.ANALYSIS -> entitlements.copy(
+            analysisTokens = Math.addExact(entitlements.analysisTokens, offer.rewardValue.toInt()),
+        )
+        RewardType.METEOR_RECOVERY -> entitlements.copy(
+            meteorRecoveryTokens = Math.addExact(entitlements.meteorRecoveryTokens, 1),
+        )
+        RewardType.METEOR_EXTENSION -> entitlements.copy(
+            meteorExtensionSeconds = Math.addExact(entitlements.meteorExtensionSeconds, offer.rewardValue),
+        )
+        RewardType.ORBITAL_BOOST -> entitlements.copy(
+            orbitalBoostPercent = offer.rewardValue.toInt().coerceAtMost(25),
+            orbitalBoostUntilEpochMillis = Math.addExact(nowEpochMillis, offer.rewardDurationMillis),
+        )
+    }
 
     private fun scopeKey(scope: RewardScope, scopeId: String): String = "${scope.name}:$scopeId"
 
@@ -410,12 +291,17 @@ class RewardedAdvertisingEngine(val definitions: RewardedAdvertisingDefinitions)
         requestId: String,
         offerId: GameId,
         sequence: Long,
-    ) = RewardedAdCommandResult.Applied(state, RewardedAdTransaction(sequence, reason, requestId, offerId))
+    ) = RewardedAdCommandResult.Applied(
+        state,
+        RewardedAdTransaction(sequence, reason, requestId, offerId),
+    )
 
-    private fun rejected(state: RewardedAdvertisingState, code: String) = RewardedAdCommandResult.Rejected(state, code)
+    private fun rejected(state: RewardedAdvertisingState, code: String) =
+        RewardedAdCommandResult.Rejected(state, code)
 
     companion object {
         const val DAY_MILLIS = 86_400_000L
-        fun dayIndex(nowEpochMillis: Long): Long = Math.floorDiv(nowEpochMillis.coerceAtLeast(0L), DAY_MILLIS)
+        fun dayIndex(nowEpochMillis: Long): Long =
+            Math.floorDiv(nowEpochMillis.coerceAtLeast(0L), DAY_MILLIS)
     }
 }
