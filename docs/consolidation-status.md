@@ -13,6 +13,9 @@
 9. **Diagnostics locaux** — tampon borné, empreintes privées et contexte technique intégré au rapport de crash local.
 10. **Validation release** — contrôle du dépôt, modèle privé de preuves et décision Go/No-Go reproductible.
 11. **Transactions avancées** — améliorations de robots, transferts logistiques, spécialisations, modules, missions, contrats et collections sont engagés via le journal multi-slots.
+12. **Refactorisation structurelle** — écrans rangés par fonctionnalité, variantes historiques supprimées, Ferrum séparé en état, entrées, actions, présentation, scène, textes et UI.
+13. **Découpage du domaine** — assemblage, raffinage, robots, progression, publicité, météorites, stratégie et catalogue Ferrum sont séparés en définitions, état et moteur.
+14. **État explicite** — suppression du singleton visuel Ferrum et transmission du stade de colonie par l’état d’écran.
 
 ## Commandes locales
 
@@ -29,6 +32,8 @@ Les équivalents PowerShell sont disponibles dans `scripts/`.
 ## État réel
 
 Le dépôt possède maintenant les garde-fous nécessaires pour poursuivre le développement proprement. Les sons, musiques, modèles 3D, textures et VFX définitifs restent volontairement absents et pourront être intégrés via le registre d’assets lorsque les fichiers seront prêts.
+
+La refactorisation préalable aux assets est terminée. Les détails, suppressions et conventions sont consignés dans [`refactoring-status.md`](refactoring-status.md).
 
 La publication reste **NO-GO** tant que les preuves externes suivantes ne sont pas complètes : clé et bundle signés, installation sur appareils, migrations réelles, matrice paysage/accessibilité, performance faible appareil, consentement, test fermé, absence de crash/ANR, politique HTTPS, visuels et formulaires Play Console.
 

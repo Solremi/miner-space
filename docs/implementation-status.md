@@ -13,6 +13,21 @@ Statut : **implémentées dans le code, validations Android restantes**.
 
 Présent : économie, sauvegarde, Ferrum Delta, robots, stratégie, missions, Codex, narration, présentation, prestige, Cryos IX, frontière et publicités récompensées.
 
+## Refactorisation structurelle
+
+Statut : **terminée avant intégration des assets définitifs**.
+
+- écrans rangés par fonctionnalité ;
+- anciens écrans non routés supprimés ;
+- `FerrumCommandScreen` réduit à un orchestrateur ;
+- caméra, entrées, actions, HUD, textes, état et scène Ferrum séparés ;
+- état visuel global supprimé ;
+- écrans Stratégie, Missions et Météorites allégés ;
+- gros agrégats du domaine divisés en définitions, état et moteur ;
+- garde-fou local contre les monolithes, les fichiers obsolètes et les workflows.
+
+Le détail se trouve dans [`refactoring-status.md`](refactoring-status.md).
+
 ## Étape 17 — Finition et publication
 
 Statut : **outillage et durcissement du dépôt implémentés ; publication encore NO-GO jusqu’aux validations externes**.
@@ -61,13 +76,14 @@ Statut : **outillage et durcissement du dépôt implémentés ; publication enco
 
 ### Blocages avant GO
 
-1. créer et sauvegarder la clé réelle hors dépôt ;
-2. publier la politique de confidentialité en HTTPS ;
-3. renseigner le contact et les identifiants AdMob de production ;
-4. produire les captures et ressources Play Store finales ;
-5. exécuter le bundle signé sur les appareils cibles ;
-6. tester toutes les migrations des versions diffusées ;
-7. terminer un test fermé et traiter les retours ;
-8. raccorder les offres publicitaires contextuelles retour et météores ;
-9. compléter les formulaires Play Console ;
-10. confirmer zéro panne bloquante, ANR et perte de sauvegarde.
+1. exécuter la compilation et tous les tests locaux après la refactorisation ;
+2. créer et sauvegarder la clé réelle hors dépôt ;
+3. publier la politique de confidentialité en HTTPS ;
+4. renseigner le contact et les identifiants AdMob de production ;
+5. produire les captures et ressources Play Store finales ;
+6. exécuter le bundle signé sur les appareils cibles ;
+7. tester toutes les migrations des versions diffusées ;
+8. terminer un test fermé et traiter les retours ;
+9. raccorder et valider les offres publicitaires contextuelles réelles ;
+10. compléter les formulaires Play Console ;
+11. confirmer zéro panne bloquante, ANR et perte de sauvegarde.
